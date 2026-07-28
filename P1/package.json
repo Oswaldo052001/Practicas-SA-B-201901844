@@ -1,0 +1,15 @@
+{
+  "name": "p1",
+  "version": "1.0.0",
+  "description": "API REST para gestion de solicitudes operativas de una academia",
+  "main": "dist/app.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
+    "build": "tsc",
+    "start": "node dist/app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
