@@ -1,0 +1,16 @@
+services:
+  autenticacion_db:
+    image: postgres:16
+    container_name: autenticacion_db
+    restart: always
+    environment:
+      POSTGRES_USER: autenticacion_user
+      POSTGRES_PASSWORD: autenticacion_pass
+      POSTGRES_DB: autenticacion_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - autenticacion_data:/var/lib/postgresql/data
+
+volumes:
+  autenticacion_data:
