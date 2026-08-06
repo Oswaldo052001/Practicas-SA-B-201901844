@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Iniciar sesion</title>
+  <link rel="stylesheet" href="css/estilos.css" />
+</head>
+<body>
+  <div class="contenedor">
+    <h1>Iniciar sesion</h1>
+
+    <form id="formLogin">
+      <label for="correo">Correo</label>
+      <input type="email" id="correo" name="correo" required />
+
+      <label for="password">Contrasena</label>
+      <input type="password" id="password" name="password" required />
+
+      <button type="submit">Ingresar</button>
+    </form>
+
+    <p id="mensaje"></p>
+
+    <p class="enlace">
+      No tienes cuenta? <a href="registro.html">Registrate aqui</a>
+    </p>
+  </div>
+
+  <script src="js/login.js"></script>
+</body>
+</html>

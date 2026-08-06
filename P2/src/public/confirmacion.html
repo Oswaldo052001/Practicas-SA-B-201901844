@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sesion iniciada</title>
+  <link rel="stylesheet" href="css/estilos.css" />
+</head>
+<body>
+  <div class="contenedor">
+    <h1>Sesion iniciada</h1>
+
+    <div class="info-usuario">
+      <p><strong>Nombre:</strong> <span id="nombreUsuario"></span></p>
+      <p><strong>Rol:</strong> <span id="rolUsuario"></span></p>
+    </div>
+
+    <button id="btnProbarAdmin">Probar ruta solo-admin</button>
+    <div id="resultadoAdmin" class="resultado-recurso" style="display: none;"></div>
+
+    <button id="btnProbarGeneral">Probar ruta general</button>
+    <div id="resultadoGeneral" class="resultado-recurso" style="display: none;"></div>
+
+    <button id="btnLogout">Cerrar sesion</button>
+  </div>
+
+  <script src="js/confirmacion.js"></script>
+</body>
+</html>
