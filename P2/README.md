@@ -46,6 +46,8 @@ A diferencia del nombre y el correo, la contraseña nunca se desencripta ni nece
 
 Flujo completo: registro, login, acceso a ruta protegida, y renovación automática del token.
 
+![Texto alternativo](Diagram.png)
+
 ## Estructura del proyecto
 
 ```
