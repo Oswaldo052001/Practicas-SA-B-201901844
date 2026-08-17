@@ -1,0 +1,23 @@
+type Pago {
+    id: ID!
+    reservaId: Int!
+    monto: Float!
+    estado: String!
+    metodoPago: String!
+    creadoEn: String
+}
+
+input CrearPagoInput {
+    reservaId: Int!
+    monto: Float!
+    metodoPago: String!
+}
+
+type Query {
+    pago(id: ID!): Pago
+    pagosPorReserva(reservaId: Int!): [Pago!]!
+}
+
+type Mutation {
+    crearPago(datos: CrearPagoInput!): Pago!
+}

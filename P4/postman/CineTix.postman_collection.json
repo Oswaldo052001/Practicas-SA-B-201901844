@@ -1,0 +1,225 @@
+{
+  "info": {
+    "name": "CineTix - Practica 4",
+    "description": "Contrato de endpoints para auth-service, reserva-service, notificacion-service y el API Gateway. Los servicios pelicula-service y pago-service (Java) exponen su contrato en /swagger-ui.html.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "gateway_url", "value": "http://localhost:3000" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Registrar usuario",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gateway_url}}/api/auth/registro",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Oswaldo Choc\",\n  \"correo\": \"oswaldo@correo.com\",\n  \"password\": \"clave12345\",\n  \"rol\": \"cliente\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Iniciar sesion",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gateway_url}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"oswaldo@correo.com\",\n  \"password\": \"clave12345\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Obtener perfil",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/auth/perfil"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Peliculas y funciones",
+      "item": [
+        {
+          "name": "Listar peliculas",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/peliculas"
+          }
+        },
+        {
+          "name": "Crear pelicula",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gateway_url}}/api/peliculas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Interestelar\",\n  \"genero\": \"Ciencia ficcion\",\n  \"duracionMinutos\": 169,\n  \"clasificacion\": \"PG-13\",\n  \"sinopsis\": \"Un grupo de exploradores viaja a traves de un agujero de gusano\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Crear sala",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gateway_url}}/api/salas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Sala 1\",\n  \"capacidad\": 4\n}"
+            }
+          }
+        },
+        {
+          "name": "Crear asiento en sala",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gateway_url}}/api/salas/1/asientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fila\": \"A\",\n  \"numero\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar asientos de una sala",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/salas/1/asientos"
+          }
+        },
+        {
+          "name": "Crear funcion",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gateway_url}}/api/funciones",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pelicula\": { \"id\": 1 },\n  \"sala\": { \"id\": 1 },\n  \"fechaHora\": \"2026-08-20T19:00:00\",\n  \"precio\": 35.00\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar funciones",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/funciones"
+          }
+        },
+        {
+          "name": "Generar asientos disponibles de una funcion",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/funciones/1/generar-asientos"
+          }
+        },
+        {
+          "name": "Ver asientos disponibles de una funcion",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/funciones/1/asientos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reservas",
+      "item": [
+        {
+          "name": "Crear reserva (REST)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gateway_url}}/api/reservas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario_id\": 1,\n  \"funcion_id\": 1,\n  \"asientos\": [\n    { \"asiento_funcion_id\": 1, \"precio_unitario\": 35.00 }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Crear reserva (GraphQL)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gateway_url}}/graphql/reservas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"mutation { crearReserva(datos: { usuario_id: 1, funcion_id: 1, asientos: [{ asiento_funcion_id: 1, precio_unitario: 35.0 }] }) { id estado detalles { asiento_funcion_id precio_unitario } } }\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Obtener reserva",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/reservas/1"
+          }
+        },
+        {
+          "name": "Confirmar reserva",
+          "request": {
+            "method": "PATCH",
+            "url": "{{gateway_url}}/api/reservas/1/confirmar"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pagos",
+      "item": [
+        {
+          "name": "Crear pago (REST)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gateway_url}}/api/pagos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservaId\": 1,\n  \"monto\": 35.00,\n  \"metodoPago\": \"tarjeta\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Crear pago (GraphQL)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gateway_url}}/graphql/pagos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"mutation { crearPago(datos: { reservaId: 1, monto: 35.0, metodoPago: \\\"tarjeta\\\" }) { id estado metodoPago } }\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notificaciones",
+      "item": [
+        {
+          "name": "Enviar notificacion",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{gateway_url}}/api/notificaciones",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario_id\": 1,\n  \"tipo\": \"confirmacion_reserva\",\n  \"destinatario\": \"oswaldo@correo.com\",\n  \"asunto\": \"Confirmacion de tu reserva\",\n  \"mensaje\": \"Tu reserva ha sido confirmada\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

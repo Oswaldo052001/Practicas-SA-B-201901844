@@ -1,0 +1,214 @@
+services:
+  auth-db:
+    image: postgres:16
+    container_name: auth-db
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - cinetix-network
+
+  pelicula-db:
+    image: postgres:16
+    container_name: pelicula-db
+    environment:
+      POSTGRES_DB: pelicula_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - pelicula_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pelicula_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - cinetix-network
+
+  reserva-db:
+    image: postgres:16
+    container_name: reserva-db
+    environment:
+      POSTGRES_DB: reserva_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - reserva_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d reserva_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - cinetix-network
+
+  pago-db:
+    image: postgres:16
+    container_name: pago-db
+    environment:
+      POSTGRES_DB: pago_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
+    volumes:
+      - pago_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pago_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - cinetix-network
+
+  notificacion-db:
+    image: postgres:16
+    container_name: notificacion-db
+    environment:
+      POSTGRES_DB: notificacion_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5437:5432"
+    volumes:
+      - notificacion_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notificacion_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - cinetix-network
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: auth-service
+    environment:
+      PORT: 3001
+      DB_HOST: auth-db
+      DB_PORT: 5432
+      DB_NAME: auth_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: ${JWT_SECRET:-clave_compartida_de_desarrollo}
+      AES_SECRET_KEY: ${AES_SECRET_KEY:-clave_aes_de_desarrollo}
+      TIEMPO_VIDA_SEGUNDOS: 3600
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - cinetix-network
+
+  pelicula-service:
+    build: ./services/pelicula-service
+    container_name: pelicula-service
+    environment:
+      DB_HOST: pelicula-db
+      DB_PORT: 5432
+      DB_NAME: pelicula_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      pelicula-db:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - cinetix-network
+
+  reserva-service:
+    build: ./services/reserva-service
+    container_name: reserva-service
+    environment:
+      PORT: 3003
+      DB_HOST: reserva-db
+      DB_PORT: 5432
+      DB_NAME: reserva_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      reserva-db:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - cinetix-network
+
+  pago-service:
+    build: ./services/pago-service
+    container_name: pago-service
+    environment:
+      DB_HOST: pago-db
+      DB_PORT: 5432
+      DB_NAME: pago_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      pago-db:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - cinetix-network
+
+  notificacion-service:
+    build: ./services/notificacion-service
+    container_name: notificacion-service
+    environment:
+      PORT: 3005
+      DB_HOST: notificacion-db
+      DB_PORT: 5432
+      DB_NAME: notificacion_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      notificacion-db:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - cinetix-network
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    environment:
+      PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:3001
+      PELICULA_SERVICE_URL: http://pelicula-service:3002
+      RESERVA_SERVICE_URL: http://reserva-service:3003
+      PAGO_SERVICE_URL: http://pago-service:3004
+      NOTIFICACION_SERVICE_URL: http://notificacion-service:3005
+      JWT_SECRET: ${JWT_SECRET:-clave_compartida_de_desarrollo}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - pelicula-service
+      - reserva-service
+      - pago-service
+      - notificacion-service
+    networks:
+      - cinetix-network
+
+networks:
+  cinetix-network:
+    driver: bridge
+
+volumes:
+  auth_db_data:
+  pelicula_db_data:
+  reserva_db_data:
+  pago_db_data:
+  notificacion_db_data:
