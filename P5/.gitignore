@@ -1,0 +1,16 @@
+# Credenciales reales, nunca versionar
+charts/sa-platform/values-secrets.yaml
+
+# Dependencias descargadas de Helm
+charts/sa-platform/charts/*.tgz
+charts/sa-platform/Chart.lock
+
+# Node
+node_modules/
+dist/
+
+# Java
+target/
+
+# Logs
+*.log

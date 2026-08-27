@@ -1,0 +1,12 @@
+{
+  "name": "cronjob-registro",
+  "version": "1.0.0",
+  "description": "CronJob que inserta un registro cada 2 minutos con fecha GMT-6 y carne del estudiante",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "pg": "^8.12.0"
+  }
+}

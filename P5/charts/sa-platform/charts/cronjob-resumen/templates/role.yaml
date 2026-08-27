@@ -1,0 +1,27 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cronjob-resumen-role
+  namespace: {{ .Values.global.namespace | default "sa-p5" }}
+  labels:
+    {{- include "cronjob-resumen.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cronjob-resumen-rolebinding
+  namespace: {{ .Values.global.namespace | default "sa-p5" }}
+  labels:
+    {{- include "cronjob-resumen.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cronjob-resumen.serviceAccountName" . }}
+    namespace: {{ .Values.global.namespace | default "sa-p5" }}
+roleRef:
+  kind: Role
+  name: cronjob-resumen-role
+  apiGroup: rbac.authorization.k8s.io

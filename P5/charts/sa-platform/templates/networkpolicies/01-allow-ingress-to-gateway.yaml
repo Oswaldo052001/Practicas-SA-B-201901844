@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sa-p5-allow-ingress-to-gateway
+  namespace: {{ include "sa-platform.namespace" . }}
+  labels:
+    {{- include "sa-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      sa.usac.edu/role: gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    # El gateway es la unica puerta de entrada al cluster, por eso acepta
+    # trafico desde cualquier origen (incluyendo el Service NodePort).
+    - {}

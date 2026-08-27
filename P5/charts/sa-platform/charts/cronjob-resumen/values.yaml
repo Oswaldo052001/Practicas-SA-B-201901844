@@ -1,0 +1,16 @@
+image:
+  repository: sa-p5/cronjob-resumen
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+schedule: "*/5 * * * *"
+concurrencyPolicy: Forbid
+backoffLimit: 2
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 3
+resources:
+  requests: { cpu: 50m, memory: 64Mi }
+  limits: { cpu: 150m, memory: 128Mi }
+serviceAccount:
+  create: true
+env:
+  dbName: cronjobs_db

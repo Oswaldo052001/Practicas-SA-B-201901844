@@ -1,0 +1,28 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pago-service-role
+  namespace: {{ .Values.global.namespace | default "sa-p5" }}
+  labels:
+    {{- include "pago-service.labels" . | nindent 4 }}
+rules:
+  # Minimo privilegio: el pod solo necesita leer su propia configuracion.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pago-service-rolebinding
+  namespace: {{ .Values.global.namespace | default "sa-p5" }}
+  labels:
+    {{- include "pago-service.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "pago-service.serviceAccountName" . }}
+    namespace: {{ .Values.global.namespace | default "sa-p5" }}
+roleRef:
+  kind: Role
+  name: pago-service-role
+  apiGroup: rbac.authorization.k8s.io

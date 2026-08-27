@@ -1,0 +1,6 @@
+apiVersion: v2
+name: pago-service
+description: Subchart de pago-service para la plataforma sa-platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

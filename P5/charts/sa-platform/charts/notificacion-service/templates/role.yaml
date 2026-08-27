@@ -1,0 +1,28 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: notificacion-service-role
+  namespace: {{ .Values.global.namespace | default "sa-p5" }}
+  labels:
+    {{- include "notificacion-service.labels" . | nindent 4 }}
+rules:
+  # Minimo privilegio: el pod solo necesita leer su propia configuracion.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: notificacion-service-rolebinding
+  namespace: {{ .Values.global.namespace | default "sa-p5" }}
+  labels:
+    {{- include "notificacion-service.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "notificacion-service.serviceAccountName" . }}
+    namespace: {{ .Values.global.namespace | default "sa-p5" }}
+roleRef:
+  kind: Role
+  name: notificacion-service-role
+  apiGroup: rbac.authorization.k8s.io

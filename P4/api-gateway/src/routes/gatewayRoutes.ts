@@ -33,7 +33,7 @@ router.use(
 
 router.use(
   createProxyMiddleware({
-    pathFilter: ["/api/peliculas", "/api/funciones"],
+    pathFilter: ["/api/peliculas", "/api/funciones", "/api/salas"],
     target: PELICULA_SERVICE_URL,
     changeOrigin: true,
     pathRewrite: { "^/api": "" }

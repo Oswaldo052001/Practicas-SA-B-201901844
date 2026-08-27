@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: reserva-service-pdb
+  namespace: {{ .Values.global.namespace | default "sa-p5" }}
+  labels:
+    {{- include "reserva-service.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: reserva-service
+      app.kubernetes.io/instance: {{ .Release.Name }}
