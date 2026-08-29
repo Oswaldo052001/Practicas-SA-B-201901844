@@ -35,7 +35,7 @@ api-gateway:
     targetCPUUtilizationPercentage: 60
 
 auth-service:
-  replicaCount: 1
+  replicaCount: 2
   image:
     tag: "dev"
   resources:

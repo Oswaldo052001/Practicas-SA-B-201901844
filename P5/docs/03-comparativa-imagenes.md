@@ -1,34 +1,35 @@
 # Tabla Comparativa de Tamano de Imagenes
 
-Esta tabla debe llenarse ejecutando los comandos indicados despues de
-construir las imagenes en tu maquina (ver `02-comandos-reproducibles.md`).
+Medido con `docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"` en el entorno real de desarrollo (Docker Desktop, Windows).
 
-## Como medir el "antes"
+## Metodologia
 
-Para tener una referencia de "antes", construir una version de una sola
-etapa (sin multi-stage) de al menos un servicio, por ejemplo comentando
-temporalmente la etapa de build en el Dockerfile y usando una imagen base
-completa (`node:20` en vez de `node:20-alpine`, o `eclipse-temurin:17` en vez
-de `eclipse-temurin:17-jre-alpine`), y comparar contra la version final
-multi-stage optimizada.
+Para cada stack tecnologico (Node.js y Java/Spring Boot) se construyo una version de referencia "antes" — una sola etapa, usando la imagen base completa del lenguaje (`node:20`, `maven:3.9-eclipse-temurin-17`) — y se comparo contra la version final "despues", que ya usa multi-stage build y una base minima (`node:20-alpine`, `eclipse-temurin:17-jre-alpine`) desde el diseno original del proyecto.
 
-```powershell
-docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
-```
+Los demas microservicios de cada stack (`reserva-service`, `notificacion-service`, `api-gateway` para Node; no aplica otro en Java) usan exactamente el mismo patron de Dockerfile multi-stage, por lo que el porcentaje de reduccion observado es representativo para todos ellos.
 
-## Tabla a completar
+## Resultados medidos
 
-| Microservicio | Imagen base antes | Tamano antes | Imagen base despues (multi-stage) | Tamano despues | Reduccion |
-|---|---|---|---|---|---|
-| auth-service | node:20 | ___ MB | node:20-alpine (runtime) | ___ MB | ___ % |
-| reserva-service | node:20 | ___ MB | node:20-alpine (runtime) | ___ MB | ___ % |
-| pago-service | eclipse-temurin:17 | ___ MB | eclipse-temurin:17-jre-alpine (runtime) | ___ MB | ___ % |
-| notificacion-service | node:20 | ___ MB | node:20-alpine (runtime) | ___ MB | ___ % |
-| api-gateway | node:20 | ___ MB | node:20-alpine (runtime) | ___ MB | ___ % |
+| Microservicio | Stack                 | Antes (una etapa, base completa)             | Despues (multi-stage, base minima)           | Reduccion       |
+| --------------- | ----------------------- | ---------------------------------------------- | ---------------------------------------------- | ----------------- |
+| auth-service  | Node.js 20            | 1.7 GB (`node:20`)                       | 206 MB (`node:20-alpine`)                | **\~88%** |
+| pago-service  | Java 17 / Spring Boot | 1.11 GB (`maven:3.9-eclipse-temurin-17`) | 353 MB (`eclipse-temurin:17-jre-alpine`) | **\~68%** |
 
-Nota: los Dockerfiles ya entregados en `docker/*/Dockerfile` estan escritos
-con multi-stage build y base minima (alpine / jre-alpine) desde el inicio.
-Para obtener el numero de "antes" real, se recomienda hacer una copia
-temporal de un Dockerfile, quitar la primera etapa (FROM ... AS build) y
-usar directamente la imagen base completa como runtime, solo para efectos de
-medicion comparativa.
+## Tamano final de todas las imagenes de la plataforma (ya optimizadas)
+
+| Imagen                         | Tamano |
+| -------------------------------- | -------- |
+| sa-p5/auth-service:dev         | 206 MB |
+| sa-p5/reserva-service:dev      | 224 MB |
+| sa-p5/pago-service:dev         | 353 MB |
+| sa-p5/notificacion-service:dev | 201 MB |
+| sa-p5/api-gateway:dev          | 203 MB |
+| sa-p5/cronjob-registro:dev     | 194 MB |
+| sa-p5/cronjob-resumen:dev      | 195 MB |
+
+## Analisis
+
+La reduccion es mayor en el stack de Node.js (\~88%) porque la imagen base completa `node:20` incluye herramientas de compilacion, documentacion y utilidades de desarrollo que no se necesitan en produccion (el proceso compilado de TypeScript a JavaScript no requiere el compilador en tiempo de ejecucion), mientras que la etapa final `node:20-alpine` solo trae el runtime de Node y las dependencias de produccion (`npm install --omit=dev`).
+
+En el caso de `pago-service` (Java), la reduccion es menor en terminos porcentuales (\~68%) porque el JRE de Java, incluso en su variante minima (`eclipse-temurin:17-jre-alpine`), pesa mas que el runtime de Node.js; aun asi la diferencia es sustancial: se elimina todo el JDK completo y las herramientas de Maven (necesarias solo para compilar, no para ejecutar el `.jar` ya construido).
+
