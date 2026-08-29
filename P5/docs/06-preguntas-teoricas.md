@@ -32,7 +32,7 @@ veces en el mismo cluster (por ejemplo en distintos namespaces) generando
 releases distintos, y cada `helm upgrade` sobre ese release crea una nueva
 revision numerada. Un repository es simplemente un lugar donde se publican y
 descargan charts (por ejemplo el repositorio de Bitnami usado para
-`postgresql` y `kafka` en este proyecto), analogo a un registro de paquetes
+`postgresql` y `rabbitmq` en este proyecto), analogo a un registro de paquetes
 como npm o Maven Central pero para charts de Helm.
 
 ## 3. Que es un StatefulSet y cuando NO usarlo
@@ -74,7 +74,7 @@ cluster salvo que exista explicitamente una NetworkPolicy que lo restrinja.
 Por eso en esta practica se aplico primero una politica de "deny all"
 (bloquea todo el ingress por defecto) y luego se agregaron excepciones
 puntuales: solo el gateway puede alcanzar a los microservicios, y solo los
-microservicios y cronjobs autorizados pueden alcanzar a PostgreSQL y Kafka.
+microservicios y cronjobs autorizados pueden alcanzar a PostgreSQL y RabbitMQ.
 
 ## 6. Que es un PodDisruptionBudget
 

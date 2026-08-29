@@ -2,6 +2,13 @@
 
 Carne: 201901844. Namespace de trabajo: `sa-p5`.
 
+**Nota sobre el broker elegido:** se opto inicialmente por Kafka, pero durante
+las pruebas en el cluster local el consumo de memoria de la JVM de Kafka
+(incluso reducido a 1 sola replica) causaba reinicios por OOMKilled en un
+equipo con recursos limitados. Se migro a RabbitMQ, que el enunciado permite
+como alternativa valida, por ser considerablemente mas liviano (no requiere
+JVM) para un entorno de desarrollo local.
+
 ## Diagrama general
 
 ```mermaid
@@ -17,12 +24,12 @@ flowchart TB
             auth["auth-service<br/>ClusterIP"]
             reserva["reserva-service<br/>ClusterIP<br/>REST + GraphQL"]
             pago["pago-service<br/>ClusterIP<br/>Java / Spring Boot"]
-            notif["notificacion-service<br/>ClusterIP<br/>unico consumidor Kafka"]
+            notif["notificacion-service<br/>ClusterIP<br/>unico consumidor RabbitMQ"]
         end
 
         subgraph zona_datos["Zona de datos<br/>(NetworkPolicy: solo accesible desde microservicios/cronjobs autorizados)"]
             pg[("PostgreSQL StatefulSet<br/>1 instancia, 5 bases logicas:<br/>auth_db | reserva_db | pago_db<br/>notificacion_db | cronjobs_db")]
-            kafka{{"Kafka<br/>topico pagos-procesados<br/>topico resumen-cronjobs"}}
+            rabbitmq{{"RabbitMQ<br/>cola pagos-procesados<br/>cola resumen-cronjobs"}}
         end
 
         subgraph zona_jobs["CronJobs"]
@@ -44,21 +51,21 @@ flowchart TB
     pago --> pg
     notif --> pg
 
-    pago -.->|"evento asincrono<br/>(linea punteada)<br/>pago confirmado"| kafka
-    kafka -.->|consume evento| notif
+    pago -.->|"evento asincrono<br/>(linea punteada)<br/>pago confirmado"| rabbitmq
+    rabbitmq -.->|consume evento| notif
 
     pago ---|HTTP sincrono externo| proveedor
 
     cj1 --> pg
     cj2 --> pg
-    cj2 -.->|publica resumen| kafka
-    kafka -.->|consume resumen| notif
+    cj2 -.->|publica resumen| rabbitmq
+    rabbitmq -.->|consume resumen| notif
 ```
 
 ## Convenciones del diagrama
 
 - Linea solida = comunicacion sincrona (HTTP/REST/GraphQL).
-- Linea punteada = comunicacion asincrona (evento Kafka).
+- Linea punteada = comunicacion asincrona (evento RabbitMQ).
 - `api-gateway` es el unico componente con Service de tipo NodePort; el resto
   usa ClusterIP o no tiene Service (segun corresponda).
 
@@ -77,7 +84,7 @@ para que quede trazable frente al enunciado escrito.
 
 **Internos al cluster (namespace `sa-p5`):** api-gateway, auth-service,
 reserva-service, pago-service, notificacion-service, PostgreSQL
-(StatefulSet), Kafka, cronjob-registro, cronjob-resumen.
+(StatefulSet), RabbitMQ, cronjob-registro, cronjob-resumen.
 
 **Externos al cluster:** el cliente que consume la API (Postman, k6, un
 navegador) y el proveedor de pago simulado que pago-service invoca via HTTP
@@ -97,8 +104,8 @@ por el auxiliar sobre integridad de datos.
    `sa.usac.edu/role: microservicio`.
 4. `sa-p5-allow-services-to-postgresql`: solo pods con rol `microservicio` o
    `cronjob` pueden alcanzar el pod de PostgreSQL, puerto 5432.
-5. `sa-p5-allow-services-to-kafka`: solo pods con rol `microservicio` o
-   `cronjob` pueden alcanzar el pod de Kafka, puerto 9092.
+5. `sa-p5-allow-services-to-rabbitmq`: solo pods con rol `microservicio` o
+   `cronjob` pueden alcanzar el pod de RabbitMQ, puerto 5672.
 
 Cualquier pod fuera de estas categorias (por ejemplo un pod de prueba lanzado
 manualmente con `kubectl run`) queda bloqueado por la regla 1 y no puede

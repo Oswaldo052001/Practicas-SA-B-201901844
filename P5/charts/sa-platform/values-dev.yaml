@@ -63,8 +63,13 @@ pago-service:
   image:
     tag: "dev"
   resources:
-    requests: { cpu: 100m, memory: 128Mi }
-    limits: { cpu: 300m, memory: 384Mi }
+    # Spring Boot / JVM necesita bastante CPU solo para arrancar rapido.
+    # Con limites muy bajos, el arranque se vuelve tan lento (throttling)
+    # que el startupProbe lo mata antes de que termine de levantar.
+    requests: { cpu: 500m, memory: 384Mi }
+    limits: { cpu: 1500m, memory: 768Mi }
+  probes:
+    startup: { path: /health, periodSeconds: 5, failureThreshold: 60 }
   hpa:
     minReplicas: 1
     maxReplicas: 3
@@ -91,8 +96,8 @@ cronjob-resumen:
     tag: "dev"
 
 resourceQuota:
-  requestsCpu: "2"
+  requestsCpu: "3"
   requestsMemory: 2Gi
-  limitsCpu: "4"
-  limitsMemory: 4Gi
+  limitsCpu: "6"
+  limitsMemory: 5Gi
   pods: "30"

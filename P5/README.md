@@ -8,7 +8,7 @@ carne 201901844.
 
 Empaquetado con Helm de la plataforma CineTix (construida en la Practica 4)
 llevandola a un nivel de madurez operativa superior: instalable, actualizable
-y reversible con un solo comando, con comunicacion asincrona via Kafka,
+y reversible con un solo comando, con comunicacion asincrona via RabbitMQ,
 persistencia durable con PostgreSQL, aislamiento de red con NetworkPolicies,
 y controles de seguridad (RBAC, securityContext, HPA, PDB).
 

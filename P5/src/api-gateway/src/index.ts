@@ -21,7 +21,7 @@ app.use(
   createProxyMiddleware({
     target: AUTH_SERVICE_URL,
     changeOrigin: true,
-    pathFilter: ["/api/auth/**"],
+    pathFilter: (pathname) => pathname.startsWith("/api/auth"),
     pathRewrite: { "^/api/auth": "" },
   })
 );
@@ -30,7 +30,7 @@ app.use(
   createProxyMiddleware({
     target: RESERVA_SERVICE_URL,
     changeOrigin: true,
-    pathFilter: ["/api/reservas/**", "/api/graphql-reservas"],
+    pathFilter: (pathname) => pathname.startsWith("/api/reservas") || pathname.startsWith("/api/graphql-reservas"),
     pathRewrite: { "^/api/reservas": "/reservas", "^/api/graphql-reservas": "/graphql" },
   })
 );
@@ -39,7 +39,7 @@ app.use(
   createProxyMiddleware({
     target: PAGO_SERVICE_URL,
     changeOrigin: true,
-    pathFilter: ["/api/pagos/**"],
+    pathFilter: (pathname) => pathname.startsWith("/api/pagos"),
     pathRewrite: { "^/api/pagos": "" },
   })
 );
@@ -48,7 +48,7 @@ app.use(
   createProxyMiddleware({
     target: NOTIFICACION_SERVICE_URL,
     changeOrigin: true,
-    pathFilter: ["/api/notificaciones/**"],
+    pathFilter: (pathname) => pathname.startsWith("/api/notificaciones"),
     pathRewrite: { "^/api/notificaciones": "" },
   })
 );

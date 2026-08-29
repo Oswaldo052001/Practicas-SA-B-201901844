@@ -54,13 +54,13 @@ spec:
             # hacia los microservicios internos, cada uno con su propia
             # conexion y sus propias credenciales.
             - name: AUTH_SERVICE_URL
-              value: "http://auth-service.{{ .Values.global.namespace | default "sa-p5" }}.svc.cluster.local"
+              value: "http://auth-service.{{ .Values.global.namespace | default "sa-p5" }}.svc.cluster.local:3001"
             - name: RESERVA_SERVICE_URL
-              value: "http://reserva-service.{{ .Values.global.namespace | default "sa-p5" }}.svc.cluster.local"
+              value: "http://reserva-service.{{ .Values.global.namespace | default "sa-p5" }}.svc.cluster.local:3003"
             - name: PAGO_SERVICE_URL
-              value: "http://pago-service.{{ .Values.global.namespace | default "sa-p5" }}.svc.cluster.local"
+              value: "http://pago-service.{{ .Values.global.namespace | default "sa-p5" }}.svc.cluster.local:3004"
             - name: NOTIFICACION_SERVICE_URL
-              value: "http://notificacion-service.{{ .Values.global.namespace | default "sa-p5" }}.svc.cluster.local"
+              value: "http://notificacion-service.{{ .Values.global.namespace | default "sa-p5" }}.svc.cluster.local:3005"
           volumeMounts:
             - name: tmp
               mountPath: /tmp

@@ -15,7 +15,7 @@
   <artifactId>pago-service</artifactId>
   <version>1.0.0</version>
   <name>pago-service</name>
-  <description>Servicio de pagos con productor Kafka - Practica 5 Software Avanzado</description>
+  <description>Servicio de pagos con productor RabbitMQ - Practica 5 Software Avanzado</description>
 
   <properties>
     <java.version>17</java.version>

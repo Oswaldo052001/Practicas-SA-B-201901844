@@ -214,7 +214,7 @@ pago-service:
     rabbitmqQueuePagos: pagos-procesados
 
 # ---------------------------------------------------------------------------
-# notificacion-service (unico consumidor Kafka)
+# notificacion-service (unico consumidor RabbitMQ)
 # ---------------------------------------------------------------------------
 notificacion-service:
   replicaCount: 2
@@ -268,7 +268,7 @@ cronjob-registro:
     timezone: "America/Guatemala"
 
 # ---------------------------------------------------------------------------
-# cronjob-resumen: cada 10 minutos calcula resumen y publica en Kafka
+# cronjob-resumen: cada 10 minutos calcula resumen y publica en RabbitMQ
 # ---------------------------------------------------------------------------
 cronjob-resumen:
   image:

@@ -1,7 +1,7 @@
 {
   "name": "notificacion-service",
   "version": "1.0.0",
-  "description": "Servicio de notificaciones, consumidor Kafka de pagos y resumenes de cronjobs - Practica 5",
+  "description": "Servicio de notificaciones, consumidor RabbitMQ de pagos y resumenes de cronjobs - Practica 5",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

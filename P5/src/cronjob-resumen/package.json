@@ -1,7 +1,7 @@
 {
   "name": "cronjob-resumen",
   "version": "1.0.0",
-  "description": "CronJob que calcula un resumen de ejecuciones por hora y lo publica en Kafka",
+  "description": "CronJob que calcula un resumen de ejecuciones por hora y lo publica en RabbitMQ",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
