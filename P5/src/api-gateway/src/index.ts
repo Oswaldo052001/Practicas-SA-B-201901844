@@ -1,58 +1,77 @@
 import express from "express";
-import { createProxyMiddleware } from "http-proxy-middleware";
+import { pedirPorNats } from "./nats/natsRpcClient";
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
-
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://auth-service:3001";
-const RESERVA_SERVICE_URL = process.env.RESERVA_SERVICE_URL || "http://reserva-service:3003";
-const PAGO_SERVICE_URL = process.env.PAGO_SERVICE_URL || "http://pago-service:3004";
-const NOTIFICACION_SERVICE_URL = process.env.NOTIFICACION_SERVICE_URL || "http://notificacion-service:3005";
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok", service: "api-gateway" });
 });
 
-// Leccion de la Practica 4: usar router.use("/prefijo", proxy) hace que
-// Express recorte el prefijo antes de que http-proxy-middleware pueda
-// reescribirlo. La forma correcta es usar pathFilter directamente en el
-// proxy, sin montarlo bajo un prefijo con router.use.
-app.use(
-  createProxyMiddleware({
-    target: AUTH_SERVICE_URL,
-    changeOrigin: true,
-    pathFilter: (pathname) => pathname.startsWith("/api/auth"),
-    pathRewrite: { "^/api/auth": "" },
-  })
-);
+// Captura el cuerpo crudo (sin parsear) para poder reenviarlo tal cual
+// llego, sin importar si es JSON (REST), una consulta GraphQL, o vacio.
+app.use(express.text({ type: "*/*", limit: "5mb" }));
 
-app.use(
-  createProxyMiddleware({
-    target: RESERVA_SERVICE_URL,
-    changeOrigin: true,
-    pathFilter: (pathname) => pathname.startsWith("/api/reservas") || pathname.startsWith("/api/graphql-reservas"),
-    pathRewrite: { "^/api/reservas": "/reservas", "^/api/graphql-reservas": "/graphql" },
-  })
-);
+interface Ruta {
+  prefijo: string;
+  servicio: string;
+  reescribirPath: (path: string) => string;
+}
 
-app.use(
-  createProxyMiddleware({
-    target: PAGO_SERVICE_URL,
-    changeOrigin: true,
-    pathFilter: (pathname) => pathname.startsWith("/api/pagos"),
-    pathRewrite: { "^/api/pagos": "" },
-  })
-);
+// Practica 4/5: cada regla usaba http-proxy-middleware con pathFilter +
+// pathRewrite apuntando a la URL interna del servicio. Practica 6: la misma
+// tabla de rutas, pero en vez de un target HTTP, cada regla apunta al
+// "servicio" NATS que debe resolverla (subject svc.<servicio>.http).
+const rutas: Ruta[] = [
+  { prefijo: "/api/auth", servicio: "auth-service", reescribirPath: (p) => p.replace(/^\/api\/auth/, "") || "/" },
+  {
+    prefijo: "/api/graphql-reservas",
+    servicio: "reserva-service",
+    reescribirPath: (p) => p.replace(/^\/api\/graphql-reservas/, "/graphql"),
+  },
+  {
+    prefijo: "/api/reservas",
+    servicio: "reserva-service",
+    reescribirPath: (p) => p.replace(/^\/api\/reservas/, "/reservas"),
+  },
+  { prefijo: "/api/pagos", servicio: "pago-service", reescribirPath: (p) => p.replace(/^\/api\/pagos/, "") || "/" },
+  {
+    prefijo: "/api/notificaciones",
+    servicio: "notificacion-service",
+    reescribirPath: (p) => p.replace(/^\/api\/notificaciones/, "") || "/",
+  },
+];
 
-app.use(
-  createProxyMiddleware({
-    target: NOTIFICACION_SERVICE_URL,
-    changeOrigin: true,
-    pathFilter: (pathname) => pathname.startsWith("/api/notificaciones"),
-    pathRewrite: { "^/api/notificaciones": "" },
-  })
-);
+const HEADERS_A_OMITIR = new Set(["content-length", "transfer-encoding", "connection"]);
+
+app.use(async (req, res) => {
+  const ruta = rutas.find((r) => req.path.startsWith(r.prefijo));
+  if (!ruta) {
+    return res.status(404).json({ error: "ruta no reconocida por el api-gateway" });
+  }
+
+  const headers: Record<string, string> = {};
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (typeof v === "string") headers[k] = v;
+  }
+
+  const query = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+  const respuesta = await pedirPorNats(ruta.servicio, {
+    method: req.method,
+    path: ruta.reescribirPath(req.path) + query,
+    headers,
+    body: typeof req.body === "string" && req.body.length > 0 ? req.body : null,
+  });
+
+  res.status(respuesta.status);
+  for (const [k, v] of Object.entries(respuesta.headers)) {
+    if (!HEADERS_A_OMITIR.has(k.toLowerCase())) {
+      res.setHeader(k, v);
+    }
+  }
+  res.send(respuesta.body);
+});
 
 app.listen(PORT, () => {
-  console.log(`api-gateway escuchando en puerto ${PORT}`);
+  console.log(`api-gateway escuchando en puerto ${PORT} (enrutando via NATS request-reply, sin HTTP directo a los microservicios)`);
 });

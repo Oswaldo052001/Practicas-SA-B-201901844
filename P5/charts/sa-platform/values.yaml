@@ -67,36 +67,36 @@ postgresql:
           GRANT ALL PRIVILEGES ON DATABASE cronjobs_db TO sa_admin;
 
 # ---------------------------------------------------------------------------
-# Dependencia: RabbitMQ (Bitnami) - broker de mensajeria
+# Dependencia: NATS con JetStream (subchart local) - broker de mensajeria
+# Practica 6: reemplaza a RabbitMQ siguiendo la recomendacion del auxiliar.
 # ---------------------------------------------------------------------------
-rabbitmq:
+nats:
   enabled: true
-  global:
-    security:
-      allowInsecureImages: true
   image:
-    registry: docker.io
-    repository: bitnamilegacy/rabbitmq
-    tag: "3.10.25"
+    repository: nats
+    tag: "2.10-alpine"
+    pullPolicy: IfNotPresent
   auth:
     username: sa_admin
-    password: "changeme"
+    # password: se define en values-secrets.yaml (no se versiona en el repo)
   persistence:
-    enabled: true
     size: 1Gi
   resources:
     requests:
       cpu: 100m
-      memory: 256Mi
+      memory: 128Mi
     limits:
       cpu: 300m
-      memory: 512Mi
+      memory: 384Mi
 
-# Colas que la aplicacion espera que existan (se declaran como durables
-# directamente desde el codigo de los productores/consumidores)
-rabbitmqQueues:
-  pagosProcesados: pagos-procesados
-  resumenCronjobs: resumen-cronjobs
+# Subjects/streams de JetStream usados por la aplicacion (se declaran de
+# forma idempotente desde el codigo de los productores/consumidores, igual
+# que antes se declaraban las colas durables de RabbitMQ)
+natsSubjects:
+  streamPagos: PAGOS
+  pagosConfirmados: eventos.pagos.confirmado
+  streamCronjobs: CRONJOBS
+  resumenCronjobs: eventos.cronjobs.resumen
 
 # ---------------------------------------------------------------------------
 # api-gateway
@@ -211,10 +211,9 @@ pago-service:
     create: true
   env:
     dbName: pago_db
-    rabbitmqQueuePagos: pagos-procesados
 
 # ---------------------------------------------------------------------------
-# notificacion-service (unico consumidor RabbitMQ)
+# notificacion-service (unico consumidor de eventos NATS JetStream)
 # ---------------------------------------------------------------------------
 notificacion-service:
   replicaCount: 2
@@ -240,9 +239,6 @@ notificacion-service:
     create: true
   env:
     dbName: notificacion_db
-    rabbitmqQueuePagos: pagos-procesados
-    rabbitmqQueueResumen: resumen-cronjobs
-    rabbitmqConsumerTag: notificacion-service-consumer
 
 # ---------------------------------------------------------------------------
 # cronjob-registro: cada 2 minutos inserta fecha GMT-6 + carne
@@ -268,7 +264,7 @@ cronjob-registro:
     timezone: "America/Guatemala"
 
 # ---------------------------------------------------------------------------
-# cronjob-resumen: cada 10 minutos calcula resumen y publica en RabbitMQ
+# cronjob-resumen: cada 10 minutos calcula resumen y publica en NATS JetStream
 # ---------------------------------------------------------------------------
 cronjob-resumen:
   image:
@@ -287,7 +283,6 @@ cronjob-resumen:
     create: true
   env:
     dbName: cronjobs_db
-    rabbitmqQueueResumen: resumen-cronjobs
 
 # ---------------------------------------------------------------------------
 # Namespace-level: ResourceQuota y LimitRange

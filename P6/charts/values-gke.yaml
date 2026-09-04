@@ -1,0 +1,48 @@
+# values-gke.yaml
+# Overlay especifico para desplegar en GKE (Google Kubernetes Engine).
+# Se aplica DESPUES de values.yaml y values-prod.yaml del chart de la
+# Practica 5 (el enunciado pide llevar a la nube lo ya construido, no
+# reescribirlo). Ver docs/02-comandos-reproducibles.md y
+# scripts/desplegar-gke.ps1 para el flujo completo.
+#
+# No incluye image.repository/image.tag: esos se pasan por --set desde el
+# script, porque dependen del PROJECT_ID de cada estudiante y asi no hace
+# falta editar (ni versionar con datos reales) este archivo.
+
+global:
+  namespace: sa-p6
+  environment: gke
+
+# GKE crea automaticamente la StorageClass "standard-rwo" (disco persistente
+# regional) en cualquier cluster desde ~2022. Se fija explicitamente para
+# que quede documentado que el almacenamiento persistente lo administra el
+# proveedor, no el estudiante.
+postgresql:
+  primary:
+    persistence:
+      storageClass: standard-rwo
+      size: 2Gi
+
+nats:
+  persistence:
+    storageClass: standard-rwo
+    size: 1Gi
+
+api-gateway:
+  service:
+    # Unico punto de entrada publico del sistema: Service tipo LoadBalancer,
+    # GCP le asigna una IP publica automaticamente (ver pregunta teorica 2
+    # en docs/07-preguntas-teoricas.md).
+    type: LoadBalancer
+    port: 3000
+
+# pago-service es Spring Boot / JVM: con los recursos de values-prod.yaml
+# (200m/320Mi) el arranque en un nodo compartido puede sufrir throttling y
+# hacer que el startupProbe lo mate antes de terminar de levantar (mismo
+# problema que se documento para el entorno local en values-dev.yaml).
+pago-service:
+  resources:
+    requests: { cpu: 400m, memory: 384Mi }
+    limits: { cpu: 1000m, memory: 768Mi }
+  probes:
+    startup: { path: /health, periodSeconds: 5, failureThreshold: 60 }

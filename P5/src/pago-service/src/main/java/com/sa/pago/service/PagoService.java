@@ -1,14 +1,15 @@
 package com.sa.pago.service;
 
-import com.sa.pago.config.RabbitMQConfig;
 import com.sa.pago.model.Pago;
 import com.sa.pago.repository.PagoRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import io.nats.client.JetStream;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,20 +18,22 @@ public class PagoService {
 
     private final PagoRepository repository;
     private final ProveedorPago proveedorPago;
-    private final RabbitTemplate rabbitTemplate;
+    private final JetStream jetStream;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Value("${nats.subject.pagos}")
+    private String subjectPagos;
+
     @Autowired
-    public PagoService(PagoRepository repository, ProveedorPago proveedorPago,
-                        RabbitTemplate rabbitTemplate) {
+    public PagoService(PagoRepository repository, ProveedorPago proveedorPago, JetStream jetStream) {
         this.repository = repository;
         this.proveedorPago = proveedorPago;
-        this.rabbitTemplate = rabbitTemplate;
+        this.jetStream = jetStream;
     }
 
     // Flujo sincrono: valida y cobra con el proveedor externo, guarda el pago.
-    // Flujo asincrono obligatorio: publica el evento en RabbitMQ y retorna de
-    // inmediato, sin esperar a que notificacion-service lo procese.
+    // Flujo asincrono obligatorio: publica el evento en NATS JetStream y
+    // retorna de inmediato, sin esperar a que notificacion-service lo procese.
     public Pago procesarPago(Long reservaId, BigDecimal monto) {
         boolean aprobado = proveedorPago.procesarCobro(reservaId, monto.doubleValue());
         String estado = aprobado ? "aprobado" : "rechazado";
@@ -51,16 +54,18 @@ public class PagoService {
             evento.put("monto", pago.getMonto());
             evento.put("pagoId", pago.getId());
 
-            String mensaje = objectMapper.writeValueAsString(evento);
+            byte[] mensaje = objectMapper.writeValueAsBytes(evento);
 
-            // convertAndSend es asincrono: el productor publica el mensaje en
-            // la cola durable y el metodo retorna de inmediato, sin esperar a
-            // que notificacion-service lo consuma.
-            rabbitTemplate.convertAndSend(RabbitMQConfig.QUEUE_PAGOS, mensaje);
-            System.out.println("[pago-service] evento publicado en " + RabbitMQConfig.QUEUE_PAGOS + ": " + mensaje);
+            // jetStream.publish() confirma que el broker persistio el
+            // mensaje en el stream antes de continuar: publicacion
+            // asincrona respecto al consumidor (no espera a que
+            // notificacion-service lo procese), pero con confirmacion de
+            // durabilidad, equivalente al "persistent: true" que se usaba
+            // con RabbitMQ.
+            jetStream.publish(subjectPagos, mensaje);
+            System.out.println("[pago-service] evento publicado en " + subjectPagos + ": " + new String(mensaje, StandardCharsets.UTF_8));
         } catch (Exception e) {
             System.err.println("[pago-service] error publicando evento de pago: " + e.getMessage());
         }
     }
 }
-

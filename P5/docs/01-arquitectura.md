@@ -123,3 +123,39 @@ cinco bases de datos logicas independientes (`auth_db`, `reserva_db`,
 `pago_db`, `notificacion_db`, `cronjobs_db`), cada una accedida
 exclusivamente por su dueno. Ningun componente lee o escribe en la base de
 datos logica de otro.
+
+## Correccion para la Practica 6 (2026-09-01)
+
+Al leer el enunciado y la rubrica de la Practica 6 quedaron claros dos
+problemas de esta arquitectura que no se habian corregido a tiempo para la
+entrega de P5:
+
+1. **El broker no siguio la recomendacion original del auxiliar.** En clase
+   se habia recomendado usar **NATS** como broker de mensajeria del curso.
+   Por el problema de memoria de Kafka documentado arriba, se migro a
+   RabbitMQ en su lugar (una alternativa que el enunciado de P5 permitia),
+   pero sin retomar la recomendacion de NATS despues.
+2. **La comunicacion `api-gateway` <-> microservicios seguia siendo HTTP
+   sincrona** (ver diagrama arriba: "HTTP sincrono" en linea solida entre
+   `gateway` y cada microservicio). El enunciado de la Practica 6 exige
+   explicitamente, como requisito obligatorio para poder calificar, que
+   exista "comunicacion asincrona entre microservicios y api-gateway".
+
+Antes de empezar el trabajo de despliegue en la nube de la Practica 6, se
+corrigieron ambos puntos en este mismo codigo fuente (`P5/src`):
+
+- Se reemplazo RabbitMQ por **NATS JetStream** en los dos flujos de eventos
+  existentes (pago confirmado, resumen de cronjob), manteniendo las mismas
+  garantias (stream con retencion, consumidor durable, ack/nak manual,
+  reparto de carga entre replicas por queue group).
+- Se agrego un bridge NATS-HTTP en cada microservicio
+  (`src/*/src/nats/httpBridge.ts` en los servicios Node,
+  `com.sa.pago.nats.NatsHttpBridge` en `pago-service`), de forma que el
+  `api-gateway` deje de abrir conexiones HTTP directas hacia los pods:
+  ahora publica cada peticion en el subject `svc.<servicio>.http` y espera
+  la respuesta por el patron request-reply de NATS. La logica de negocio
+  (rutas, controladores, GraphQL) no cambio en absoluto: solo cambio el
+  transporte entre el gateway y cada microservicio.
+
+El detalle completo, con diagrama actualizado y la justificacion de cada
+decision, esta documentado en `P6/docs/01-arquitectura-nube.md`.

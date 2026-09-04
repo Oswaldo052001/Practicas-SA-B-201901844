@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nats.fullname" . }}-config
+  namespace: {{ .Values.global.namespace | default "sa-p5" }}
+  labels:
+    {{- include "nats.labels" . | nindent 4 }}
+data:
+  # Config del servidor NATS. El usuario/password de autorizacion NO se
+  # incluyen aqui (esto es un ConfigMap, no un Secret): se pasan como flags
+  # --user/--pass en el StatefulSet, resueltos desde el Secret nats.
+  nats.conf: |
+    http: 8222
+
+    jetstream {
+      store_dir: /data/jetstream
+      max_mem_store: {{ .Values.jetstream.maxMemory | default "256MB" }}
+      max_file_store: {{ .Values.jetstream.maxFile | default "1GB" }}
+    }

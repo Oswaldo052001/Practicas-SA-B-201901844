@@ -41,16 +41,16 @@ Host interno (DNS) del servicio primary de PostgreSQL dentro del cluster.
 {{- end -}}
 
 {{/*
-Nombre del Secret generado automaticamente por el subchart de Bitnami
-rabbitmq. Contiene la clave "rabbitmq-password".
+Nombre del Secret del subchart local nats (Practica 6). Contiene las claves
+"nats-user" y "nats-password".
 */}}
-{{- define "sa-platform.rabbitmqSecretName" -}}
-{{- printf "%s-rabbitmq" .Release.Name -}}
+{{- define "sa-platform.natsSecretName" -}}
+{{- printf "%s-nats" .Release.Name -}}
 {{- end -}}
 
 {{/*
-Host interno (DNS) de RabbitMQ dentro del cluster.
+Host interno (DNS) de NATS dentro del cluster.
 */}}
-{{- define "sa-platform.rabbitmqHost" -}}
-{{- printf "%s-rabbitmq.%s.svc.cluster.local" .Release.Name (include "sa-platform.namespace" .) -}}
+{{- define "sa-platform.natsHost" -}}
+{{- printf "%s-nats.%s.svc.cluster.local" .Release.Name (include "sa-platform.namespace" .) -}}
 {{- end -}}

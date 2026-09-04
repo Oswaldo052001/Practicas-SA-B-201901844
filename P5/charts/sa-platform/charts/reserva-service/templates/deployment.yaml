@@ -49,6 +49,8 @@ spec:
                 name: reserva-service-config
             - secretRef:
                 name: {{ include "sa-platform.postgresqlSecretName" . }}
+            - secretRef:
+                name: {{ include "sa-platform.natsSecretName" . }}
           env:
             - name: PORT
               value: "3003"
@@ -57,6 +59,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "sa-platform.postgresqlSecretName" . }}
                   key: password
+            - name: NATS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sa-platform.natsSecretName" . }}
+                  key: nats-password
           volumeMounts:
             - name: tmp
               mountPath: /tmp

@@ -1,6 +1,7 @@
 import express from "express";
 import { initSchema, pool } from "./database/pool";
-import { iniciarConsumidor } from "./rabbitmq/consumer";
+import { iniciarConsumidor } from "./eventos/consumer";
+import { iniciarBridgeNats } from "./nats/httpBridge";
 
 const PORT = Number(process.env.PORT || 3005);
 
@@ -33,12 +34,13 @@ async function main() {
     console.log(`notificacion-service escuchando en puerto ${PORT}`);
   });
 
-  // El consumidor RabbitMQ corre en paralelo al servidor HTTP dentro del mismo
-  // proceso/pod, para no anadir un servicio adicional fuera del alcance
-  // de la practica.
+  // El consumidor JetStream (eventos de pago/resumen) y el bridge de NATS
+  // (peticiones REST del api-gateway via subject svc.notificacion-service.http)
+  // corren en paralelo al servidor HTTP, dentro del mismo proceso/pod.
   iniciarConsumidor().catch((err) => {
-    console.error("Error al iniciar el consumidor RabbitMQ:", err);
+    console.error("Error al iniciar el consumidor JetStream:", err);
   });
+  await iniciarBridgeNats();
 }
 
 main().catch((err) => {

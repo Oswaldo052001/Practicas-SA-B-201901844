@@ -50,7 +50,7 @@ spec:
             - secretRef:
                 name: {{ include "sa-platform.postgresqlSecretName" . }}
             - secretRef:
-                name: {{ include "sa-platform.rabbitmqSecretName" . }}
+                name: {{ include "sa-platform.natsSecretName" . }}
           env:
             - name: PORT
               value: "3004"
@@ -59,11 +59,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "sa-platform.postgresqlSecretName" . }}
                   key: password
-            - name: RABBITMQ_PASSWORD
+            - name: NATS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "sa-platform.rabbitmqSecretName" . }}
-                  key: rabbitmq-password
+                  name: {{ include "sa-platform.natsSecretName" . }}
+                  key: nats-password
           volumeMounts:
             - name: tmp
               mountPath: /tmp

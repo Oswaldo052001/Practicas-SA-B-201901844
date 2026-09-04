@@ -14,9 +14,9 @@ postgresql:
     database: sa_platform_db
     postgresPassword: "REEMPLAZAR-password-root-postgres"
 
-rabbitmq:
+nats:
   auth:
-    password: "REEMPLAZAR-password-rabbitmq"
+    password: "REEMPLAZAR-password-nats"
 
 secrets:
   jwtSecret: "REEMPLAZAR-con-clave-generada-con-crypto-randomBytes-32"

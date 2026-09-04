@@ -4,6 +4,7 @@ import { expressMiddleware } from "@apollo/server/express4";
 import reservaRoutes from "./routes/reservaRoutes";
 import { typeDefs, resolvers } from "./graphql/schema";
 import { initSchema, pool } from "./database/pool";
+import { iniciarBridgeNats } from "./nats/httpBridge";
 
 const PORT = Number(process.env.PORT || 3003);
 
@@ -31,6 +32,11 @@ async function main() {
   app.listen(PORT, () => {
     console.log(`reserva-service escuchando en puerto ${PORT} (REST + GraphQL en /graphql)`);
   });
+
+  // Practica 6: el api-gateway llega hasta aca via NATS (subject
+  // svc.reserva-service.http), incluidas las peticiones GraphQL, que el
+  // bridge reenvia por loopback a este mismo servidor Express+Apollo.
+  await iniciarBridgeNats();
 }
 
 main().catch((err) => {
