@@ -52,5 +52,5 @@ Nombre del Secret del subchart local nats (Practica 6). Contiene las claves
 Host interno (DNS) de NATS dentro del cluster.
 */}}
 {{- define "sa-platform.natsHost" -}}
-{{- printf "%s-nats.%s.svc.cluster.local" .Release.Name (include "sa-platform.namespace" .) -}}
+{{- printf "nats.%s.svc.cluster.local" (include "sa-platform.namespace" .) -}}
 {{- end -}}

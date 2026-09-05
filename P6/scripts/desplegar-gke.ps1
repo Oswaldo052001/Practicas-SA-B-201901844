@@ -23,7 +23,7 @@ $ErrorActionPreference = "Stop"
 # ----------------------------------------------------------------------------
 # 0) Variables - AJUSTAR antes de correr
 # ----------------------------------------------------------------------------
-$PROJECT_ID = "TU-PROJECT-ID-DE-GCP"      # gcloud projects list
+$PROJECT_ID = "cinetix-p6"      # gcloud projects list
 $REGION     = "us-central1"
 $ZONE       = "us-central1-a"
 $CLUSTER    = "sa-p6-cluster"
@@ -68,7 +68,7 @@ $servicios = @("api-gateway", "auth-service", "reserva-service", "pago-service",
 
 foreach ($s in $servicios) {
     Write-Host "==> build $s"
-    docker build -t "$IMG_BASE/${s}:p6" -f "docker/$s/Dockerfile" "src/$s"
+    docker build -t "$IMG_BASE/${s}:p6" -f "docker/$s/Dockerfile" .
 }
 
 foreach ($s in $servicios) {
