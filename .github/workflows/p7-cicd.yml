@@ -234,4 +234,6 @@ jobs:
         run: |
           kubectl get pods -n ${{ env.NAMESPACE }} -o wide
           kubectl get svc -n ${{ env.NAMESPACE }}
-          kubectl rollout status deployment --all -n ${{ env.NAMESPACE }} --timeout=180s
+          for d in $(kubectl get deployments -n ${{ env.NAMESPACE }} -o jsonpath='{.items[*].metadata.name}'); do
+            kubectl rollout status deployment/$d -n ${{ env.NAMESPACE }} --timeout=180s
+          done
