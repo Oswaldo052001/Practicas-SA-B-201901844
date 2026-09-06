@@ -1,4 +1,4 @@
-import { connect, NatsConnection, JetStreamManager, AckPolicy, StringCodec } from "nats";
+import { connect, NatsConnection, JetStreamManager, AckPolicy, StringCodec, createInbox } from "nats";
 import { pool } from "../database/pool";
 import { formatearMensajePago, formatearMensajeResumen } from "./formato";
 
@@ -85,7 +85,7 @@ export async function iniciarConsumidor(): Promise<void> {
   await asegurarStream(jsm, STREAM_CRONJOBS, SUBJECT_RESUMEN);
 
   const subPagos = await js.subscribe(SUBJECT_PAGOS, {
-    config: { durable_name: "notificacion-pagos", ack_policy: AckPolicy.Explicit },
+    config: { durable_name: "notificacion-pagos", ack_policy: AckPolicy.Explicit, deliver_subject: createInbox() },
     queue: "notificacion-pagos",
   });
   (async () => {
@@ -104,7 +104,7 @@ export async function iniciarConsumidor(): Promise<void> {
   })();
 
   const subResumen = await js.subscribe(SUBJECT_RESUMEN, {
-    config: { durable_name: "notificacion-resumen", ack_policy: AckPolicy.Explicit },
+    config: { durable_name: "notificacion-resumen", ack_policy: AckPolicy.Explicit, deliver_subject: createInbox() },
     queue: "notificacion-resumen",
   });
   (async () => {
