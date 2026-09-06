@@ -8,6 +8,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY src/cronjob-registro/package.json ./
+COPY src/cronjob-registro/fecha.js ./
 COPY src/cronjob-registro/index.js ./
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup

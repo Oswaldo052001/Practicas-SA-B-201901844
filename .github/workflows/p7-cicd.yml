@@ -1,0 +1,231 @@
+# Practica 7 - Software Avanzado - USAC, carne 201901844
+# Pipeline de Integracion y Despliegue Continuo (CI/CD) sobre el sistema de
+# microservicios CineTix construido en la Practica 4, empaquetado con Helm
+# en la Practica 5 y llevado a GKE en la Practica 6.
+#
+# Disparadores:
+#   - push / pull_request a cualquier rama: corre SOLO build + test (CI).
+#     Da retroalimentacion rapida en cada commit, sin tocar Docker ni GKE.
+#   - push de un tag "p7-vX.Y.Z": corre el pipeline completo (CI + build de
+#     imagenes + push a GHCR + despliegue a GKE via Helm). Este es el
+#     "Versionamiento" que exige la rubrica (2.4): las etiquetas son las que
+#     disparan el despliegue, no cada commit suelto.
+#   - workflow_dispatch: permite correr el CI a mano desde la pestana
+#     Actions, sin necesidad de crear un tag.
+#
+# Requisitos previos (ver P7/README.md y P7/docs/00-rubrica-checklist.md):
+#   - El release de Helm "sa-platform" ya debe existir en el cluster GKE
+#     "sa-p6-cluster" (namespace sa-p6), creado a mano una vez siguiendo
+#     P6/scripts/desplegar-gke.ps1 (pasos 1-8). Este pipeline NO crea el
+#     cluster ni pasa credenciales/secrets de la aplicacion: solo actualiza
+#     las imagenes del release ya existente (helm upgrade --reuse-values).
+#   - Secret de repositorio GCP_SA_KEY: JSON de una cuenta de servicio de
+#     GCP con el rol roles/container.developer sobre el proyecto.
+#   - Variables de repositorio (Settings > Secrets and variables > Actions >
+#     Variables), opcionales, con default igual a lo usado en P6:
+#     GCP_PROJECT_ID (default cinetix-p6), GKE_CLUSTER (default
+#     sa-p6-cluster), GKE_ZONE (default us-central1-a), GKE_NAMESPACE
+#     (default sa-p6).
+
+name: P7 - CI/CD microservicios CineTix
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["p7-v*"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "20"
+  JAVA_VERSION: "17"
+
+jobs:
+  # ---------------------------------------------------------------------
+  # CI - build + test de los 6 microservicios en Node/TypeScript
+  # ---------------------------------------------------------------------
+  test-node:
+    name: Build y test (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - auth-service
+          - reserva-service
+          - notificacion-service
+          - cronjob-registro
+          - cronjob-resumen
+    defaults:
+      run:
+        working-directory: P5/src/${{ matrix.service }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: P5/src/${{ matrix.service }}/package-lock.json
+
+      - name: Instalar dependencias (npm ci)
+        run: npm ci
+
+      - name: Build (tsc) - solo si el servicio lo define
+        run: npm run build --if-present
+
+      - name: Ejecutar pruebas automatizadas (jest)
+        run: npm test --if-present
+
+  # ---------------------------------------------------------------------
+  # CI - build + test de pago-service (Java / Spring Boot / Maven)
+  # ---------------------------------------------------------------------
+  test-java:
+    name: Build y test (pago-service)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: P5/src/pago-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK ${{ env.JAVA_VERSION }} (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Build y pruebas con Maven
+        run: mvn -B test
+
+  # ---------------------------------------------------------------------
+  # CD - build + push de las 7 imagenes a GHCR (solo en tags p7-v*)
+  # ---------------------------------------------------------------------
+  docker-build-push:
+    name: Docker build/push (${{ matrix.service }})
+    needs: [test-node, test-java]
+    if: startsWith(github.ref, 'refs/tags/p7-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service:
+          - api-gateway
+          - auth-service
+          - reserva-service
+          - pago-service
+          - notificacion-service
+          - cronjob-registro
+          - cronjob-resumen
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login a GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Mismos Dockerfile multi-stage de la Practica 5 (P5/docker/<servicio>),
+      # sin reescribir la aplicacion, igual que se hizo en la Practica 6.
+      - name: Build y push de ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: P5
+          file: P5/docker/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/sa-p7/${{ matrix.service }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/sa-p7/${{ matrix.service }}:latest
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  # ---------------------------------------------------------------------
+  # CD - despliegue a GKE (release "sa-platform" creado en la Practica 6)
+  # ---------------------------------------------------------------------
+  deploy:
+    name: Deploy a GKE via Helm
+    needs: docker-build-push
+    if: startsWith(github.ref, 'refs/tags/p7-v')
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID || 'cinetix-p6' }}
+      ZONE: ${{ vars.GKE_ZONE || 'us-central1-a' }}
+      CLUSTER: ${{ vars.GKE_CLUSTER || 'sa-p6-cluster' }}
+      NAMESPACE: ${{ vars.GKE_NAMESPACE || 'sa-p6' }}
+      IMG_BASE: ghcr.io/${{ github.repository_owner }}/sa-p7
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Autenticar con GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configurar gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Obtener credenciales del cluster GKE
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER }}
+          location: ${{ env.ZONE }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Instalar Helm
+        uses: azure/setup-helm@v4
+
+      - name: Resolver dependencias del chart (postgresql + nats)
+        run: helm dependency update P5/charts/sa-platform
+
+      # --reuse-values conserva TODO lo que ya se instalo a mano en la
+      # Practica 6 (values-secrets-gke.yaml, overlay de GKE, namespace,
+      # etc.) y este pipeline solo pisa el repository/tag de cada imagen.
+      # No se crea el release desde cero aqui a proposito: las credenciales
+      # reales (Postgres, NATS, JWT) nunca deben pasar por GitHub Actions
+      # en texto plano si no existe un vault configurado.
+      - name: helm upgrade (actualizar imagenes al tag ${{ github.ref_name }})
+        run: |
+          helm upgrade sa-platform P5/charts/sa-platform \
+            --reuse-values \
+            --set api-gateway.image.repository=${{ env.IMG_BASE }}/api-gateway \
+            --set api-gateway.image.tag=${{ github.ref_name }} \
+            --set auth-service.image.repository=${{ env.IMG_BASE }}/auth-service \
+            --set auth-service.image.tag=${{ github.ref_name }} \
+            --set reserva-service.image.repository=${{ env.IMG_BASE }}/reserva-service \
+            --set reserva-service.image.tag=${{ github.ref_name }} \
+            --set pago-service.image.repository=${{ env.IMG_BASE }}/pago-service \
+            --set pago-service.image.tag=${{ github.ref_name }} \
+            --set notificacion-service.image.repository=${{ env.IMG_BASE }}/notificacion-service \
+            --set notificacion-service.image.tag=${{ github.ref_name }} \
+            --set cronjob-registro.image.repository=${{ env.IMG_BASE }}/cronjob-registro \
+            --set cronjob-registro.image.tag=${{ github.ref_name }} \
+            --set cronjob-resumen.image.repository=${{ env.IMG_BASE }}/cronjob-resumen \
+            --set cronjob-resumen.image.tag=${{ github.ref_name }} \
+            -n ${{ env.NAMESPACE }} \
+            --wait --timeout 10m
+
+      - name: Verificacion post-despliegue
+        run: |
+          kubectl get pods -n ${{ env.NAMESPACE }} -o wide
+          kubectl get svc -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment --all -n ${{ env.NAMESPACE }} --timeout=180s

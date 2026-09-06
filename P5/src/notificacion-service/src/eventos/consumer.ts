@@ -1,5 +1,6 @@
 import { connect, NatsConnection, JetStreamManager, AckPolicy, StringCodec } from "nats";
 import { pool } from "../database/pool";
+import { formatearMensajePago, formatearMensajeResumen } from "./formato";
 
 // Practica 6: se reemplaza RabbitMQ por NATS JetStream, siguiendo la
 // recomendacion del auxiliar sobre el broker de mensajeria (en la Practica
@@ -26,7 +27,7 @@ const SIETE_DIAS_NS = 7 * 24 * 60 * 60 * 1_000_000_000;
 
 async function procesarEventoPago(payload: any): Promise<void> {
   const { reservaId, monto } = payload;
-  const mensaje = `Pago confirmado para la reserva ${reservaId} por Q${monto}`;
+  const mensaje = formatearMensajePago({ reservaId, monto });
   await pool.query(
     "INSERT INTO notificaciones (reserva_id, monto, mensaje) VALUES ($1, $2, $3)",
     [reservaId, monto, mensaje]
@@ -40,9 +41,7 @@ async function procesarResumenCronjob(payload: any): Promise<void> {
     "INSERT INTO resumenes_cronjobs (hora, cantidad_ejecuciones) VALUES ($1, $2)",
     [hora, cantidadEjecuciones]
   );
-  console.log(
-    `[notificacion-service] resumen almacenado: hora=${hora} ejecuciones=${cantidadEjecuciones}`
-  );
+  console.log(`[notificacion-service] resumen almacenado: ${formatearMensajeResumen({ hora, cantidadEjecuciones })}`);
 }
 
 // Crea el stream si todavia no existe (primer arranque de la plataforma).

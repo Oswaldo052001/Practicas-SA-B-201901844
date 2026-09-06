@@ -1,5 +1,6 @@
 const { Pool } = require("pg");
 const { connect, StringCodec } = require("nats");
+const { mapearFilaAResumen } = require("./mapear");
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -52,10 +53,7 @@ async function main() {
   const js = nc.jetstream();
 
   for (const fila of resultado.rows) {
-    const mensaje = {
-      hora: fila.hora,
-      cantidadEjecuciones: Number(fila.cantidad_ejecuciones),
-    };
+    const mensaje = mapearFilaAResumen(fila);
     // js.publish espera el ack de persistencia del servidor antes de
     // resolver la promesa: publicacion asincrona (no bloquea al productor
     // en espera de que notificacion-service lo consuma) pero con

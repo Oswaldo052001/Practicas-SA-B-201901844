@@ -1,4 +1,5 @@
 const { Pool } = require("pg");
+const { obtenerFechaGMT6 } = require("./fecha");
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -23,9 +24,7 @@ async function main() {
   // Fecha y hora en GMT-6 (America/Guatemala), independientemente de la zona
   // horaria del contenedor donde corre el pod.
   const ahora = new Date();
-  const fechaGMT6 = new Date(
-    ahora.toLocaleString("en-US", { timeZone: "America/Guatemala" })
-  );
+  const fechaGMT6 = obtenerFechaGMT6(ahora);
 
   await pool.query(
     "INSERT INTO registros_ejecucion (carne, fecha_hora_gmt6) VALUES ($1, $2)",

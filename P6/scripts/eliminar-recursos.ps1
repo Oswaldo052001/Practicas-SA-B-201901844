@@ -11,7 +11,7 @@
 
 $ErrorActionPreference = "Continue"
 
-$PROJECT_ID = "TU-PROJECT-ID-DE-GCP"
+$PROJECT_ID = "cinetix-p6"
 $REGION     = "us-central1"
 $ZONE       = "us-central1-a"
 $CLUSTER    = "sa-p6-cluster"
