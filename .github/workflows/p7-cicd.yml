@@ -1,31 +1,30 @@
 # Practica 7 - Software Avanzado - USAC, carne 201901844
 # Pipeline de Integracion y Despliegue Continuo (CI/CD) sobre el sistema de
-# microservicios CineTix construido en la Practica 4, empaquetado con Helm
-# en la Practica 5 y llevado a GKE en la Practica 6.
+# microservicios CineTix construido en la Practica 4 y empaquetado con Helm
+# en la Practica 5.
+#
+# Cambio de alcance indicado por el auxiliar: la Practica 7 NO requiere
+# nube. El "despliegue" que pide el enunciado se demuestra levantando un
+# cluster de Kubernetes efimero DENTRO del mismo runner de GitHub Actions
+# (con "kind" - Kubernetes-in-Docker), instalando ahi el chart de Helm y
+# verificando que los pods queden Running. Al terminar el job, GitHub
+# destruye el runner (y con el, el cluster kind) automaticamente: no hay
+# cuenta de GCP, no hay credenciales de nube ni costo alguno involucrados.
 #
 # Disparadores:
 #   - push / pull_request a cualquier rama: corre SOLO build + test (CI).
-#     Da retroalimentacion rapida en cada commit, sin tocar Docker ni GKE.
+#     Da retroalimentacion rapida en cada commit, sin tocar Docker ni el
+#     despliegue.
 #   - push de un tag "p7-vX.Y.Z": corre el pipeline completo (CI + build de
-#     imagenes + push a GHCR + despliegue a GKE via Helm). Este es el
-#     "Versionamiento" que exige la rubrica (2.4): las etiquetas son las que
-#     disparan el despliegue, no cada commit suelto.
+#     imagenes + push a GHCR + despliegue a un cluster kind efimero via
+#     Helm). Este es el "Versionamiento" que exige la rubrica (2.4): las
+#     etiquetas son las que disparan el despliegue, no cada commit suelto.
 #   - workflow_dispatch: permite correr el CI a mano desde la pestana
 #     Actions, sin necesidad de crear un tag.
 #
-# Requisitos previos (ver P7/README.md y P7/docs/00-rubrica-checklist.md):
-#   - El release de Helm "sa-platform" ya debe existir en el cluster GKE
-#     "sa-p6-cluster" (namespace sa-p6), creado a mano una vez siguiendo
-#     P6/scripts/desplegar-gke.ps1 (pasos 1-8). Este pipeline NO crea el
-#     cluster ni pasa credenciales/secrets de la aplicacion: solo actualiza
-#     las imagenes del release ya existente (helm upgrade --reuse-values).
-#   - Secret de repositorio GCP_SA_KEY: JSON de una cuenta de servicio de
-#     GCP con el rol roles/container.developer sobre el proyecto.
-#   - Variables de repositorio (Settings > Secrets and variables > Actions >
-#     Variables), opcionales, con default igual a lo usado en P6:
-#     GCP_PROJECT_ID (default cinetix-p6), GKE_CLUSTER (default
-#     sa-p6-cluster), GKE_ZONE (default us-central1-a), GKE_NAMESPACE
-#     (default sa-p6).
+# Requisitos previos: ninguno de nube. El job de deploy genera credenciales
+# aleatorias solo para ese cluster desechable (ver paso "Generar
+# credenciales efimeras") y crea el namespace desde cero en cada corrida.
 
 name: P7 - CI/CD microservicios CineTix
 
@@ -161,18 +160,18 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
   # ---------------------------------------------------------------------
-  # CD - despliegue a GKE (release "sa-platform" creado en la Practica 6)
+  # CD - despliegue a un cluster Kubernetes efimero (kind) creado dentro del
+  # propio runner de GitHub Actions. Sin nube, sin costo: el cluster nace y
+  # muere junto con este job.
   # ---------------------------------------------------------------------
   deploy:
-    name: Deploy a GKE via Helm
+    name: Despliegue K8s (kind efimero)
     needs: docker-build-push
     if: startsWith(github.ref, 'refs/tags/p7-v')
     runs-on: ubuntu-latest
     env:
-      PROJECT_ID: ${{ vars.GCP_PROJECT_ID || 'cinetix-p6' }}
-      ZONE: ${{ vars.GKE_ZONE || 'us-central1-a' }}
-      CLUSTER: ${{ vars.GKE_CLUSTER || 'sa-p6-cluster' }}
-      NAMESPACE: ${{ vars.GKE_NAMESPACE || 'sa-p6' }}
+      NAMESPACE: sa-p7
+      KIND_VERSION: "v0.24.0"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -180,22 +179,18 @@ jobs:
       - name: Calcular IMG_BASE (owner en minusculas, GHCR exige minusculas)
         run: echo "IMG_BASE=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/sa-p7" >> "$GITHUB_ENV"
 
-      - name: Autenticar con GCP
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Instalar kind
+        run: |
+          curl -Lo ./kind "https://kind.sigs.k8s.io/dl/${{ env.KIND_VERSION }}/kind-linux-amd64"
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+          kind version
 
-      - name: Configurar gcloud CLI
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.PROJECT_ID }}
-
-      - name: Obtener credenciales del cluster GKE
-        uses: google-github-actions/get-gke-credentials@v2
-        with:
-          cluster_name: ${{ env.CLUSTER }}
-          location: ${{ env.ZONE }}
-          project_id: ${{ env.PROJECT_ID }}
+      # ubuntu-latest ya trae Docker y kubectl instalados. kind usa el propio
+      # Docker del runner para levantar los "nodos" del cluster como
+      # contenedores; kubeconfig queda apuntando a este cluster automaticamente.
+      - name: Crear cluster Kubernetes efimero (kind)
+        run: kind create cluster --name sa-p7-ci --wait 120s
 
       - name: Instalar Helm
         uses: azure/setup-helm@v4
@@ -203,16 +198,38 @@ jobs:
       - name: Resolver dependencias del chart (postgresql + nats)
         run: helm dependency update P5/charts/sa-platform
 
-      # --reuse-values conserva TODO lo que ya se instalo a mano en la
-      # Practica 6 (values-secrets-gke.yaml, overlay de GKE, namespace,
-      # etc.) y este pipeline solo pisa el repository/tag de cada imagen.
-      # No se crea el release desde cero aqui a proposito: las credenciales
-      # reales (Postgres, NATS, JWT) nunca deben pasar por GitHub Actions
-      # en texto plano si no existe un vault configurado.
-      - name: helm upgrade (actualizar imagenes al tag ${{ github.ref_name }})
+      # Credenciales generadas al vuelo, unicamente para este cluster
+      # desechable (nunca se escriben en el repo ni se reutilizan). No hace
+      # falta ningun secret de GitHub para esto.
+      - name: Generar credenciales efimeras (solo para este cluster desechable)
         run: |
-          helm upgrade sa-platform P5/charts/sa-platform \
-            --reuse-values \
+          cat > /tmp/values-secrets-ci.yaml <<EOF
+          postgresql:
+            auth:
+              username: sa_admin
+              password: "$(openssl rand -hex 16)"
+              database: sa_platform_db
+              postgresPassword: "$(openssl rand -hex 16)"
+          nats:
+            auth:
+              password: "$(openssl rand -hex 16)"
+          secrets:
+            jwtSecret: "$(openssl rand -hex 32)"
+            aesSecretKey: "$(openssl rand -hex 32)"
+          EOF
+
+      # values.yaml + values-dev.yaml son el overlay que la Practica 5 ya
+      # dejo pensado para minikube/kind (recursos livianos, HPA con techo
+      # bajo): es exactamente lo que necesita un cluster efimero de 1 nodo
+      # en un runner de GitHub Actions. Las imagenes se apuntan a las que
+      # el job anterior acaba de publicar en GHCR con el tag del release.
+      - name: helm install (cluster kind efimero, imagenes del tag ${{ github.ref_name }})
+        run: |
+          helm install sa-platform P5/charts/sa-platform \
+            -f P5/charts/sa-platform/values.yaml \
+            -f P5/charts/sa-platform/values-dev.yaml \
+            -f /tmp/values-secrets-ci.yaml \
+            --set global.namespace=${{ env.NAMESPACE }} \
             --set api-gateway.image.repository=${{ env.IMG_BASE }}/api-gateway \
             --set api-gateway.image.tag=${{ github.ref_name }} \
             --set auth-service.image.repository=${{ env.IMG_BASE }}/auth-service \
@@ -227,13 +244,19 @@ jobs:
             --set cronjob-registro.image.tag=${{ github.ref_name }} \
             --set cronjob-resumen.image.repository=${{ env.IMG_BASE }}/cronjob-resumen \
             --set cronjob-resumen.image.tag=${{ github.ref_name }} \
-            -n ${{ env.NAMESPACE }} \
-            --wait --timeout 10m
+            -n ${{ env.NAMESPACE }} --create-namespace \
+            --wait --timeout 8m
 
       - name: Verificacion post-despliegue
         run: |
+          kubectl get nodes -o wide
           kubectl get pods -n ${{ env.NAMESPACE }} -o wide
           kubectl get svc -n ${{ env.NAMESPACE }}
           for d in $(kubectl get deployments -n ${{ env.NAMESPACE }} -o jsonpath='{.items[*].metadata.name}'); do
             kubectl rollout status deployment/$d -n ${{ env.NAMESPACE }} --timeout=180s
           done
+
+      # No hace falta un paso de limpieza: el cluster kind vive solo dentro
+      # de este job, en el Docker del runner. Al terminar el job, GitHub
+      # Actions destruye el runner completo (y con el, el cluster) sin dejar
+      # nada corriendo ni generar costo.

@@ -17,8 +17,9 @@ la interfaz de Actions").
       `docker-build-push`, `deploy`) en verde.
 - [ ] Log expandido de un job `docker-build-push` (cualquier servicio)
       mostrando el build y el push exitoso a `ghcr.io`.
-- [ ] Log del job `deploy` mostrando el `helm upgrade` exitoso y la salida
-      de `kubectl rollout status` / `kubectl get pods`.
+- [ ] Log del job `deploy` mostrando la creacion del cluster `kind`, el
+      `helm install` exitoso y la salida de `kubectl rollout status` /
+      `kubectl get pods`.
 
 ## 3. Registro de contenedores
 
@@ -27,10 +28,16 @@ la interfaz de Actions").
 
 ## 4. Cluster despues del despliegue
 
-- [ ] `kubectl get pods -n sa-p6 -o wide` (todos `Running`, imagenes con el
-      tag nuevo).
-- [ ] `kubectl get deployment -n sa-p6 -o jsonpath` o `kubectl describe`
-      de un deployment mostrando la imagen actualizada.
+Nota: desde el cambio de alcance indicado por el auxiliar, el despliegue ya
+no es a GKE sino a un cluster "kind" efimero creado dentro del propio job
+de GitHub Actions (namespace `sa-p7`). Esta evidencia se toma del log del
+paso "Verificacion post-despliegue" del job `deploy` (no hay cluster que
+consultar despues, porque se destruye junto con el runner al terminar el
+job).
+
+- [ ] Log del paso "Verificacion post-despliegue": `kubectl get pods -n
+      sa-p7 -o wide` (todos `Running`, imagenes con el tag nuevo) y el
+      `kubectl rollout status` de cada deployment en `Success`.
 
 ## 5. Diagrama del pipeline
 
