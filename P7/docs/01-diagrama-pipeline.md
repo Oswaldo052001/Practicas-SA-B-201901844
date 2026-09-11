@@ -2,30 +2,8 @@
 
 ## Vision general (4+ fases exigidas por el enunciado)
 
-```mermaid
-flowchart TD
-    A[Push / Pull Request<br/>cualquier rama] --> B
-    T[Push de tag p7-v*.*.*] --> B
+![Diagrama del pipeline CI/CD](img/01-diagrama-pipeline.png)
 
-    subgraph CI["CI - siempre que hay push o PR"]
-        B[Build<br/>npm ci / mvn -B] --> C[Test<br/>jest x6 + JUnit/Mockito]
-    end
-
-    C --> D{"¿El push fue\nun tag p7-v*?"}
-    D -- No --> Z[Fin: solo feedback de CI]
-
-    subgraph CD["CD - solo si el push fue un tag p7-v*"]
-        D -- Si --> E["Dockerize<br/>docker build (7 servicios)"]
-        E --> F["Push a GHCR<br/>ghcr.io/OWNER/sa-p7/&lt;servicio&gt;:&lt;tag&gt;"]
-        F --> G["Deploy<br/>helm upgrade --reuse-values"]
-        G --> H["Verificacion<br/>kubectl rollout status"]
-    end
-
-    H --> I[(Cluster GKE\nsa-p6-cluster\nnamespace sa-p6)]
-
-    style CI fill:#eef6ff,stroke:#4a90d9
-    style CD fill:#eefbea,stroke:#4aa04a
-```
 
 ## Las 4 fases pedidas explicitamente (seccion 3.2 del enunciado)
 
@@ -41,10 +19,15 @@ flowchart TD
    los mismos `Dockerfile` multi-stage de la Practica 5
    (`P5/docker/<servicio>/Dockerfile`), usando `P5/` como contexto de
    build (igual que hacia `desplegar-gke.ps1` en la Practica 6).
-4. **Deploy**: `helm upgrade --reuse-values` actualiza unicamente el
-   `image.repository`/`image.tag` de los 7 subcharts en el release
-   `sa-platform` que ya esta corriendo en GKE, y espera (`--wait`) a que
-   el rollout termine antes de dar el job por exitoso.
+4. **Deploy**: se crea un cluster de Kubernetes efimero con `kind`
+   (Kubernetes-in-Docker) dentro del propio runner de GitHub Actions, y
+   ahi se instala el chart desde cero con `helm install` (namespace
+   `sa-p7`, credenciales generadas al vuelo solo para ese cluster
+   desechable). Se espera (`--wait`) a que el rollout termine antes de dar
+   el job por exitoso. Al terminar el job, GitHub destruye el runner y con
+   el el cluster: no queda nada corriendo ni se genera costo de nube
+   (cambio de alcance indicado por el auxiliar: la practica no requiere
+   nube, solo demostrar el pipeline).
 
 ## Por que el deploy solo corre en tags
 
@@ -57,3 +40,5 @@ releases disparen las acciones correctamente. Aqui:
   dispara adicionalmente el build/push de imagenes y el despliegue: el tag
   representa una version concreta y deliberada que se decide promover, no
   cada commit intermedio.
+
+
