@@ -1,5 +1,17 @@
-apiVersion: apps/v1
-kind: Deployment
+# Practica 8, Fase 5 - Entrega progresiva con Argo Rollouts.
+# api-gateway (el unico punto de entrada publico del sistema) se convierte
+# de Deployment a Rollout con estrategia canary: en vez de reemplazar todos
+# los pods de una vez, va subiendo el porcentaje de trafico hacia la nueva
+# version de forma gradual, con puntos de pausa para verificar antes de
+# seguir avanzando.
+#
+# Es "canary basico" (sin service mesh ni Ingress con split de trafico):
+# Argo Rollouts logra el porcentaje ajustando la PROPORCION de replicas
+# entre el ReplicaSet viejo (stable) y el nuevo (canary), ambos detras del
+# mismo Service (api-gateway), que ya reparte trafico entre sus endpoints
+# por round-robin. No requiere infraestructura adicional.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: api-gateway
   namespace: {{ .Values.global.namespace | default "sa-p5" }}
@@ -7,11 +19,6 @@ metadata:
     {{- include "api-gateway.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 1
-      maxSurge: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: api-gateway
@@ -52,11 +59,6 @@ spec:
           env:
             - name: PORT
               value: "3000"
-            # Practica 6: el api-gateway ya NO conoce el DNS/IP de cada
-            # microservicio (asi funcionaba en la Practica 5 con
-            # http-proxy-middleware). Ahora enruta unicamente hablando con
-            # NATS (NATS_URL viene del ConfigMap compartido), que reenvia la
-            # peticion al servicio correspondiente via request-reply.
             - name: NATS_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -90,3 +92,18 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+  strategy:
+    canary:
+      # Entre pasos, Argo Rollouts espera a que los pods del canary esten
+      # Ready (gracias a los probes de arriba) antes de avanzar al siguiente.
+      steps:
+        - setWeight: 25
+        - pause: { duration: 30s }
+        - setWeight: 50
+        - pause: { duration: 30s }
+        - setWeight: 75
+        # Pausa SIN duracion = indefinida: el rollout se queda esperando
+        # aqui hasta que alguien lo promueva a mano (demuestra el punto de
+        # control humano antes del 100%):
+        #   kubectl argo rollouts promote api-gateway -n sa-p8
+        - pause: {}
