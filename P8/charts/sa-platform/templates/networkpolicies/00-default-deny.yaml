@@ -1,0 +1,13 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sa-p5-default-deny-ingress
+  namespace: {{ include "sa-platform.namespace" . }}
+  labels:
+    {{- include "sa-platform.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  # Sin reglas de ingress: bloquea todo el trafico entrante por defecto.
+  # Las policies 01, 02 y 03 abren las excepciones necesarias.

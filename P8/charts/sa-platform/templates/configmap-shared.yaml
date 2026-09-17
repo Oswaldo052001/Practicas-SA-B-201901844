@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sa-p5-shared-config
+  namespace: {{ include "sa-platform.namespace" . }}
+  labels:
+    {{- include "sa-platform.labels" . | nindent 4 }}
+data:
+  DB_HOST: {{ include "sa-platform.postgresqlHost" . }}
+  DB_PORT: "5432"
+  DB_USER: {{ .Values.postgresql.auth.username | default "sa_admin" | quote }}
+  NATS_URL: {{ printf "nats://%s:4222" (include "sa-platform.natsHost" .) | quote }}
+  NATS_USER: {{ .Values.nats.auth.username | default "sa_admin" | quote }}
+  NATS_STREAM_PAGOS: {{ .Values.natsSubjects.streamPagos | default "PAGOS" | quote }}
+  NATS_SUBJECT_PAGOS: {{ .Values.natsSubjects.pagosConfirmados | default "eventos.pagos.confirmado" | quote }}
+  NATS_STREAM_CRONJOBS: {{ .Values.natsSubjects.streamCronjobs | default "CRONJOBS" | quote }}
+  NATS_SUBJECT_RESUMEN: {{ .Values.natsSubjects.resumenCronjobs | default "eventos.cronjobs.resumen" | quote }}
+  LOG_LEVEL: {{ .Values.global.logLevel | default "info" | quote }}
+  ENVIRONMENT: {{ .Values.global.environment | default "base" | quote }}

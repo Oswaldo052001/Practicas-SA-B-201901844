@@ -1,0 +1,307 @@
+# values.yaml - valores base, comunes a todo ambiente.
+# values-dev.yaml y values-prod.yaml sobreescriben lo que cambia por ambiente.
+
+# manageNamespace controla si este chart crea/gestiona el Namespace,
+# ResourceQuota y LimitRange (comportamiento original de P5/P6/P7). En
+# P8 esos tres recursos ya los crea Terraform (ver P8/terraform), asi
+# que el values-p8.yaml pone esto en false para no chocar con ellos.
+manageNamespace: true
+
+global:
+  namespace: sa-p5
+  environment: base
+  logLevel: info
+  carneEstudiante: "201901844"
+
+# ---------------------------------------------------------------------------
+# Dependencia: PostgreSQL (Bitnami) - StatefulSet unico para toda la plataforma
+# ---------------------------------------------------------------------------
+postgresql:
+  enabled: true
+  global:
+    security:
+      # Bitnami desde diciembre 2024 bloquea por defecto cualquier imagen
+      # que no sea la "oficial" verificada. Como el catalogo gratuito
+      # docker.io/bitnami/* fue retirado (agosto 2025) y las imagenes se
+      # movieron a docker.io/bitnamilegacy/* (congelado, solo para
+      # migracion), hay que declarar explicitamente que se acepta usar esas
+      # imagenes legacy.
+      allowInsecureImages: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+    tag: "17.6.0-debian-12-r4"
+  volumePermissions:
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/os-shell
+  auth:
+    username: sa_admin
+    password: "changeme"
+    database: sa_platform_db
+    postgresPassword: "changeme-root"
+  primary:
+    persistence:
+      enabled: true
+      size: 2Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    # Script de inicializacion: se ejecuta una sola vez, al crear el volumen
+    # por primera vez. Crea las bases de datos logicas de cada microservicio
+    # y de los cronjobs dentro del mismo motor de PostgreSQL, y les otorga
+    # todos los privilegios al usuario de la aplicacion (sa_admin). Esto es
+    # lo que permite cumplir "1 base de datos persistente" (un StatefulSet)
+    # sin romper la regla de que ningun componente accede a la base de datos
+    # de otro: cada microservicio se conecta solo a su propia base logica.
+    initdb:
+      scripts:
+        01-create-databases.sql: |
+          CREATE DATABASE auth_db;
+          CREATE DATABASE reserva_db;
+          CREATE DATABASE pago_db;
+          CREATE DATABASE notificacion_db;
+          CREATE DATABASE cronjobs_db;
+          GRANT ALL PRIVILEGES ON DATABASE auth_db TO sa_admin;
+          GRANT ALL PRIVILEGES ON DATABASE reserva_db TO sa_admin;
+          GRANT ALL PRIVILEGES ON DATABASE pago_db TO sa_admin;
+          GRANT ALL PRIVILEGES ON DATABASE notificacion_db TO sa_admin;
+          GRANT ALL PRIVILEGES ON DATABASE cronjobs_db TO sa_admin;
+
+# ---------------------------------------------------------------------------
+# Dependencia: NATS con JetStream (subchart local) - broker de mensajeria
+# Practica 6: reemplaza a RabbitMQ siguiendo la recomendacion del auxiliar.
+# ---------------------------------------------------------------------------
+nats:
+  enabled: true
+  image:
+    repository: nats
+    tag: "2.10-alpine"
+    pullPolicy: IfNotPresent
+  auth:
+    username: sa_admin
+    # password: se define en values-secrets.yaml (no se versiona en el repo)
+  persistence:
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 384Mi
+
+# Subjects/streams de JetStream usados por la aplicacion (se declaran de
+# forma idempotente desde el codigo de los productores/consumidores, igual
+# que antes se declaraban las colas durables de RabbitMQ)
+natsSubjects:
+  streamPagos: PAGOS
+  pagosConfirmados: eventos.pagos.confirmado
+  streamCronjobs: CRONJOBS
+  resumenCronjobs: eventos.cronjobs.resumen
+
+# ---------------------------------------------------------------------------
+# api-gateway
+# ---------------------------------------------------------------------------
+api-gateway:
+  replicaCount: 2
+  image:
+    repository: sa-p5/api-gateway
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: NodePort
+    port: 3000
+    nodePort: 30080
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 300m, memory: 256Mi }
+  probes:
+    liveness: { path: /health, initialDelaySeconds: 10, periodSeconds: 10, failureThreshold: 3 }
+    readiness: { path: /health, initialDelaySeconds: 5, periodSeconds: 5, failureThreshold: 3 }
+    startup: { path: /health, periodSeconds: 2, failureThreshold: 30 }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1
+  serviceAccount:
+    create: true
+
+# ---------------------------------------------------------------------------
+# auth-service
+# ---------------------------------------------------------------------------
+auth-service:
+  replicaCount: 2
+  image:
+    repository: sa-p5/auth-service
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 300m, memory: 256Mi }
+  probes:
+    liveness: { path: /health, initialDelaySeconds: 10, periodSeconds: 10, failureThreshold: 3 }
+    readiness: { path: /health, initialDelaySeconds: 5, periodSeconds: 5, failureThreshold: 3 }
+    startup: { path: /health, periodSeconds: 2, failureThreshold: 30 }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1
+  serviceAccount:
+    create: true
+  env:
+    dbName: auth_db
+
+# ---------------------------------------------------------------------------
+# reserva-service
+# ---------------------------------------------------------------------------
+reserva-service:
+  replicaCount: 2
+  image:
+    repository: sa-p5/reserva-service
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 300m, memory: 256Mi }
+  probes:
+    liveness: { path: /health, initialDelaySeconds: 10, periodSeconds: 10, failureThreshold: 3 }
+    readiness: { path: /health, initialDelaySeconds: 5, periodSeconds: 5, failureThreshold: 3 }
+    startup: { path: /health, periodSeconds: 2, failureThreshold: 30 }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1
+  serviceAccount:
+    create: true
+  env:
+    dbName: reserva_db
+
+# ---------------------------------------------------------------------------
+# pago-service (Java / Spring Boot)
+# ---------------------------------------------------------------------------
+pago-service:
+  replicaCount: 2
+  image:
+    repository: sa-p5/pago-service
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 150m, memory: 256Mi }
+    limits: { cpu: 400m, memory: 512Mi }
+  probes:
+    liveness: { path: /health, initialDelaySeconds: 25, periodSeconds: 10, failureThreshold: 3 }
+    readiness: { path: /health, initialDelaySeconds: 15, periodSeconds: 5, failureThreshold: 3 }
+    startup: { path: /health, periodSeconds: 5, failureThreshold: 30 }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1
+  serviceAccount:
+    create: true
+  env:
+    dbName: pago_db
+
+# ---------------------------------------------------------------------------
+# notificacion-service (unico consumidor de eventos NATS JetStream)
+# ---------------------------------------------------------------------------
+notificacion-service:
+  replicaCount: 2
+  image:
+    repository: sa-p5/notificacion-service
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 300m, memory: 256Mi }
+  probes:
+    liveness: { path: /health, initialDelaySeconds: 10, periodSeconds: 10, failureThreshold: 3 }
+    readiness: { path: /health, initialDelaySeconds: 5, periodSeconds: 5, failureThreshold: 3 }
+    startup: { path: /health, periodSeconds: 2, failureThreshold: 30 }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    minAvailable: 1
+  serviceAccount:
+    create: true
+  env:
+    dbName: notificacion_db
+
+# ---------------------------------------------------------------------------
+# cronjob-registro: cada 2 minutos inserta fecha GMT-6 + carne
+# ---------------------------------------------------------------------------
+cronjob-registro:
+  image:
+    repository: sa-p5/cronjob-registro
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  schedule: "*/2 * * * *"
+  concurrencyPolicy: Forbid
+  backoffLimit: 2
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 150m, memory: 128Mi }
+  serviceAccount:
+    create: true
+  env:
+    dbName: cronjobs_db
+    carneEstudiante: "201901844"
+    timezone: "America/Guatemala"
+
+# ---------------------------------------------------------------------------
+# cronjob-resumen: cada 10 minutos calcula resumen y publica en NATS JetStream
+# ---------------------------------------------------------------------------
+cronjob-resumen:
+  image:
+    repository: sa-p5/cronjob-resumen
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  backoffLimit: 2
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 150m, memory: 128Mi }
+  serviceAccount:
+    create: true
+  env:
+    dbName: cronjobs_db
+
+# ---------------------------------------------------------------------------
+# Namespace-level: ResourceQuota y LimitRange
+# ---------------------------------------------------------------------------
+resourceQuota:
+  requestsCpu: "3"
+  requestsMemory: 3Gi
+  limitsCpu: "6"
+  limitsMemory: 6Gi
+  pods: "40"
+
+limitRange:
+  defaultRequestCpu: 100m
+  defaultRequestMemory: 128Mi
+  defaultLimitCpu: 300m
+  defaultLimitMemory: 256Mi

@@ -1,0 +1,30 @@
+dependencies:
+- name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: 15.5.20
+- name: nats
+  repository: ""
+  version: 0.1.0
+- name: api-gateway
+  repository: ""
+  version: 0.1.0
+- name: auth-service
+  repository: ""
+  version: 0.1.0
+- name: reserva-service
+  repository: ""
+  version: 0.1.0
+- name: pago-service
+  repository: ""
+  version: 0.1.0
+- name: notificacion-service
+  repository: ""
+  version: 0.1.0
+- name: cronjob-registro
+  repository: ""
+  version: 0.1.0
+- name: cronjob-resumen
+  repository: ""
+  version: 0.1.0
+digest: sha256:4ead2de037dd5ddbb2cfd3792312b4fbec4b6f7c1e5546e86385d1b4ae6878e6
+generated: "2026-09-04T20:21:23.0268895-06:00"

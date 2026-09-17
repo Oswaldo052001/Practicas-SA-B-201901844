@@ -1,0 +1,16 @@
+{{- if .Values.manageNamespace }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: sa-p5-quota
+  namespace: {{ include "sa-platform.namespace" . }}
+  labels:
+    {{- include "sa-platform.labels" . | nindent 4 }}
+spec:
+  hard:
+    requests.cpu: {{ .Values.resourceQuota.requestsCpu | required "resourceQuota.requestsCpu es obligatorio" | quote }}
+    requests.memory: {{ .Values.resourceQuota.requestsMemory | required "resourceQuota.requestsMemory es obligatorio" | quote }}
+    limits.cpu: {{ .Values.resourceQuota.limitsCpu | required "resourceQuota.limitsCpu es obligatorio" | quote }}
+    limits.memory: {{ .Values.resourceQuota.limitsMemory | required "resourceQuota.limitsMemory es obligatorio" | quote }}
+    pods: {{ .Values.resourceQuota.pods | default "40" | quote }}
+{{- end }}

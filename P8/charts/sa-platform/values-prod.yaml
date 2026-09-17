@@ -1,0 +1,96 @@
+# values-prod.yaml
+# Overrides para ambiente "productivo" simulado.
+# Aqui se respeta al pie de la letra lo pedido en el enunciado: HPA minimo 2,
+# maximo 5 replicas, activacion al 70% de CPU.
+# Uso: helm install sa-platform . -f values.yaml -f values-prod.yaml -n sa-p5 --create-namespace
+
+global:
+  environment: prod
+  logLevel: warn
+
+postgresql:
+  primary:
+    persistence:
+      size: 5Gi
+    resources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits: { cpu: 750m, memory: 1Gi }
+
+nats:
+  persistence:
+    size: 2Gi
+
+api-gateway:
+  replicaCount: 2
+  image:
+    tag: "1.0.0"
+  resources:
+    requests: { cpu: 150m, memory: 192Mi }
+    limits: { cpu: 400m, memory: 384Mi }
+  hpa:
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+auth-service:
+  replicaCount: 2
+  image:
+    tag: "1.0.0"
+  resources:
+    requests: { cpu: 150m, memory: 192Mi }
+    limits: { cpu: 400m, memory: 384Mi }
+  hpa:
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+reserva-service:
+  replicaCount: 2
+  image:
+    tag: "1.0.0"
+  resources:
+    requests: { cpu: 150m, memory: 192Mi }
+    limits: { cpu: 400m, memory: 384Mi }
+  hpa:
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+pago-service:
+  replicaCount: 2
+  image:
+    tag: "1.0.0"
+  resources:
+    requests: { cpu: 200m, memory: 320Mi }
+    limits: { cpu: 500m, memory: 640Mi }
+  hpa:
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+notificacion-service:
+  replicaCount: 2
+  image:
+    tag: "1.0.0"
+  resources:
+    requests: { cpu: 150m, memory: 192Mi }
+    limits: { cpu: 400m, memory: 384Mi }
+  hpa:
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+cronjob-registro:
+  image:
+    tag: "1.0.0"
+
+cronjob-resumen:
+  image:
+    tag: "1.0.0"
+
+resourceQuota:
+  requestsCpu: "4"
+  requestsMemory: 4Gi
+  limitsCpu: "8"
+  limitsMemory: 8Gi
+  pods: "50"

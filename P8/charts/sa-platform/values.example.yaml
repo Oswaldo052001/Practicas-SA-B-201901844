@@ -1,0 +1,23 @@
+# values.example.yaml
+# Plantilla de valores sensibles. Copiar como values-secrets.yaml (NO versionar
+# ese archivo) y reemplazar con credenciales reales antes de instalar.
+#
+# Uso:
+#   cp values.example.yaml values-secrets.yaml
+#   # editar values-secrets.yaml con credenciales reales
+#   helm install sa-platform . -f values.yaml -f values-dev.yaml -f values-secrets.yaml -n sa-p5 --create-namespace
+
+postgresql:
+  auth:
+    username: sa_admin
+    password: "REEMPLAZAR-password-postgres"
+    database: sa_platform_db
+    postgresPassword: "REEMPLAZAR-password-root-postgres"
+
+nats:
+  auth:
+    password: "REEMPLAZAR-password-nats"
+
+secrets:
+  jwtSecret: "REEMPLAZAR-con-clave-generada-con-crypto-randomBytes-32"
+  aesSecretKey: "REEMPLAZAR-con-clave-generada-con-crypto-randomBytes-32"

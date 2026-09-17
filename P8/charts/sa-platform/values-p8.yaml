@@ -1,0 +1,70 @@
+# values-p8.yaml
+# Overlay especifico para la Practica 8, sobre el cluster GKE de P8
+# (sa-p8-cluster, ver P8/terraform). Se aplica DESPUES de values.yaml y
+# values-dev.yaml (el perfil liviano: el ResourceQuota de Terraform para
+# P8 limita a 1500m de requests.cpu / 3Gi de requests.memory en todo el
+# namespace, y el perfil "dev" es el unico que cabe con margen).
+#
+# No incluye image.tag de forma fija: en Fase 4 el pipeline de GitOps de
+# P8 hace su propio build/push a GHCR y el tag lo actualiza ArgoCD via PR
+# automatico al repo de manifiestos, no este archivo.
+
+global:
+  namespace: sa-p8
+  environment: p8
+
+# El Namespace, ResourceQuota y LimitRange de P8 ya los crea Terraform
+# (P8/terraform/namespace.tf y quotas.tf). Este chart NO debe volver a
+# crearlos (chocarian con los que ya existen).
+manageNamespace: false
+
+# GKE crea automaticamente la StorageClass "standard-rwo" (disco persistente
+# regional).
+postgresql:
+  primary:
+    persistence:
+      storageClass: standard-rwo
+
+nats:
+  persistence:
+    storageClass: standard-rwo
+
+# Las 7 imagenes se publican en GHCR bajo el namespace sa-p8 (separado de
+# sa-p7, que sigue pendiente de calificacion y no debe tocarse). El tag
+# real lo pone el pipeline de CI/CD (Fase 4) o, mientras tanto, --set al
+# instalar manualmente.
+api-gateway:
+  image:
+    repository: ghcr.io/oswaldo052001/sa-p8/api-gateway
+  service:
+    # Unico punto de entrada publico del sistema.
+    type: LoadBalancer
+    port: 3000
+
+auth-service:
+  image:
+    repository: ghcr.io/oswaldo052001/sa-p8/auth-service
+
+reserva-service:
+  image:
+    repository: ghcr.io/oswaldo052001/sa-p8/reserva-service
+
+notificacion-service:
+  image:
+    repository: ghcr.io/oswaldo052001/sa-p8/notificacion-service
+
+cronjob-registro:
+  image:
+    repository: ghcr.io/oswaldo052001/sa-p8/cronjob-registro
+
+cronjob-resumen:
+  image:
+    repository: ghcr.io/oswaldo052001/sa-p8/cronjob-resumen
+
+# pago-service: values-dev.yaml ya le sube los recursos (500m/384Mi
+# request) y el startupProbe (failureThreshold 60) para el problema de
+# arranque JVM en nodos compartidos - no hace falta tocarlo aqui, solo la
+# imagen.
+pago-service:
+  image:
+    repository: ghcr.io/oswaldo052001/sa-p8/pago-service

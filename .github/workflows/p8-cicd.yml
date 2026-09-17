@@ -1,0 +1,219 @@
+# Practica 8 - Software Avanzado - USAC, carne 201901844
+# Evolucion GitOps del pipeline de la Practica 7: el CI sigue construyendo
+# y probando los 7 microservicios y publicando imagenes en GHCR, pero YA NO
+# despliega nada directamente (ni a un cluster real ni a uno efimero). En
+# vez de eso, el ultimo job actualiza las tags de imagen en el repo de
+# manifiestos separado (Practicas-SA-B-201901844-gitops) y abre un Pull
+# Request. ArgoCD es el UNICO que aplica cambios al cluster, y solo lo hace
+# despues de que ese PR se aprueba y se mergea a mano.
+#
+# Disparadores identicos a P7:
+#   - push / pull_request a cualquier rama: CI (build+test), sin tocar
+#     Docker ni el repo de GitOps.
+#   - push de un tag "p8-vX.Y.Z": pipeline completo (CI + build/push de
+#     imagenes a ghcr.io/.../sa-p8/<servicio> + PR automatico al repo
+#     GitOps con esas tags).
+#   - workflow_dispatch: correr el CI a mano sin crear un tag.
+#
+# Requiere el secret GITOPS_PAT (fine-grained PAT con permisos Contents:
+# Read and write y Pull requests: Read and write, restringido unicamente
+# al repo Practicas-SA-B-201901844-gitops) configurado en este repo:
+# Settings -> Secrets and variables -> Actions.
+
+name: P8 - CI/CD GitOps
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["p8-v*"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "20"
+  JAVA_VERSION: "17"
+  GITOPS_REPO: Oswaldo052001/Practicas-SA-B-201901844-gitops
+
+jobs:
+  # ---------------------------------------------------------------------
+  # CI - build + test de los 6 microservicios en Node/TypeScript
+  # (identico a P7: mismo codigo fuente en P5/src, nada cambia aqui)
+  # ---------------------------------------------------------------------
+  test-node:
+    name: Build y test (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - auth-service
+          - reserva-service
+          - notificacion-service
+          - cronjob-registro
+          - cronjob-resumen
+    defaults:
+      run:
+        working-directory: P5/src/${{ matrix.service }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: P5/src/${{ matrix.service }}/package-lock.json
+
+      - name: Instalar dependencias (npm ci)
+        run: npm ci
+
+      - name: Build (tsc) - solo si el servicio lo define
+        run: npm run build --if-present
+
+      - name: Ejecutar pruebas automatizadas (jest)
+        run: npm test --if-present
+
+  # ---------------------------------------------------------------------
+  # CI - build + test de pago-service (Java / Spring Boot / Maven)
+  # ---------------------------------------------------------------------
+  test-java:
+    name: Build y test (pago-service)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: P5/src/pago-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK ${{ env.JAVA_VERSION }} (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Build y pruebas con Maven
+        run: mvn -B test
+
+  # ---------------------------------------------------------------------
+  # CD - build + push de las 7 imagenes a GHCR bajo el namespace sa-p8
+  # (solo en tags p8-v*). Sin tag "latest" a proposito (ver Fase 8/Kyverno).
+  # ---------------------------------------------------------------------
+  docker-build-push:
+    name: Docker build/push (${{ matrix.service }})
+    needs: [test-node, test-java]
+    if: startsWith(github.ref, 'refs/tags/p8-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service:
+          - api-gateway
+          - auth-service
+          - reserva-service
+          - pago-service
+          - notificacion-service
+          - cronjob-registro
+          - cronjob-resumen
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Owner en minusculas (GHCR exige minusculas en el nombre del repo)
+        id: meta
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Login a GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build y push de ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: P5
+          file: P5/docker/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ghcr.io/${{ steps.meta.outputs.owner }}/sa-p8/${{ matrix.service }}:${{ github.ref_name }}
+          cache-from: type=gha,scope=p8-${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=p8-${{ matrix.service }}
+
+  # ---------------------------------------------------------------------
+  # GitOps - actualiza values-images.yaml en el repo de manifiestos y abre
+  # un Pull Request. NO hace kubectl/helm apply contra ningun cluster: eso
+  # lo hace unicamente ArgoCD, y solo despues de mergear este PR a mano.
+  # ---------------------------------------------------------------------
+  update-gitops:
+    name: Actualizar tags en repo GitOps (PR)
+    needs: docker-build-push
+    if: startsWith(github.ref, 'refs/tags/p8-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repo de manifiestos (GitOps)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GITOPS_REPO }}
+          token: ${{ secrets.GITOPS_PAT }}
+          path: gitops-repo
+
+      - name: Actualizar values-images.yaml con la nueva tag (${{ github.ref_name }})
+        working-directory: gitops-repo
+        run: |
+          cat > apps/sa-platform/values-images.yaml <<EOF
+          api-gateway:
+            image:
+              tag: "${{ github.ref_name }}"
+          auth-service:
+            image:
+              tag: "${{ github.ref_name }}"
+          reserva-service:
+            image:
+              tag: "${{ github.ref_name }}"
+          notificacion-service:
+            image:
+              tag: "${{ github.ref_name }}"
+          cronjob-registro:
+            image:
+              tag: "${{ github.ref_name }}"
+          cronjob-resumen:
+            image:
+              tag: "${{ github.ref_name }}"
+          pago-service:
+            image:
+              tag: "${{ github.ref_name }}"
+          EOF
+
+      - name: Abrir Pull Request en el repo GitOps
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITOPS_PAT }}
+          path: gitops-repo
+          commit-message: "P8 CI: actualizar imagenes a ${{ github.ref_name }}"
+          branch: p8-ci/bump-${{ github.ref_name }}
+          delete-branch: true
+          base: main
+          title: "P8: actualizar imagenes de sa-platform a ${{ github.ref_name }}"
+          body: |
+            Pull Request automatico generado por el pipeline P8 CI/CD.
+
+            Las 7 imagenes de sa-platform ya estan publicadas en GHCR con la
+            tag `${{ github.ref_name }}` (ver `ghcr.io/oswaldo052001/sa-p8/*`).
+
+            Al aprobar y mergear este PR, ArgoCD sincroniza automaticamente
+            el cluster `sa-p8-cluster` con estas nuevas versiones.

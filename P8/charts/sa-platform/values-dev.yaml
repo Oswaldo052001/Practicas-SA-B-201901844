@@ -1,0 +1,103 @@
+# values-dev.yaml
+# Overrides para ambiente de desarrollo local (minikube/kind en la maquina del estudiante).
+# Uso: helm install sa-platform . -f values.yaml -f values-dev.yaml -n sa-p5 --create-namespace
+
+global:
+  environment: dev
+  logLevel: debug
+
+postgresql:
+  primary:
+    persistence:
+      size: 1Gi
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { cpu: 300m, memory: 256Mi }
+
+nats:
+  persistence:
+    size: 512Mi
+
+api-gateway:
+  replicaCount: 1
+  image:
+    tag: "dev"
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 200m, memory: 128Mi }
+  hpa:
+    minReplicas: 1
+    # Nota: el auxiliar comento en clase que en equipos locales limitados los
+    # valores de HPA del enunciado (min 2 / max 5) pueden ser pesados. Para
+    # dev bajamos el techo; el valor exigido por el enunciado (min 2, max 5,
+    # 70%) se mantiene intacto en values-prod.yaml.
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 60
+
+auth-service:
+  replicaCount: 2
+  image:
+    tag: "dev"
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 200m, memory: 128Mi }
+  hpa:
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 60
+
+reserva-service:
+  replicaCount: 1
+  image:
+    tag: "dev"
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 200m, memory: 128Mi }
+  hpa:
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 60
+
+pago-service:
+  replicaCount: 1
+  image:
+    tag: "dev"
+  resources:
+    # Spring Boot / JVM necesita bastante CPU solo para arrancar rapido.
+    # Con limites muy bajos, el arranque se vuelve tan lento (throttling)
+    # que el startupProbe lo mata antes de que termine de levantar.
+    requests: { cpu: 500m, memory: 384Mi }
+    limits: { cpu: 1500m, memory: 768Mi }
+  probes:
+    startup: { path: /health, periodSeconds: 5, failureThreshold: 60 }
+  hpa:
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 60
+
+notificacion-service:
+  replicaCount: 1
+  image:
+    tag: "dev"
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 200m, memory: 128Mi }
+  hpa:
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 60
+
+cronjob-registro:
+  image:
+    tag: "dev"
+
+cronjob-resumen:
+  image:
+    tag: "dev"
+
+resourceQuota:
+  requestsCpu: "3"
+  requestsMemory: 2Gi
+  limitsCpu: "6"
+  limitsMemory: 5Gi
+  pods: "30"
