@@ -19,6 +19,12 @@
 
   <properties>
     <java.version>17</java.version>
+    <!-- Forzado a la ultima version 10.1.x de Tomcat (parche de seguridad,
+         misma linea que trae Spring Boot 3.3.4 por defecto) para corregir
+         varios CVE CRITICAL en tomcat-embed-core detectados por Trivy
+         (criterio 2.6): RCE por PUT parcial, bypass de autenticacion
+         DIGEST/FORM, validacion de cabeceras HTTP/2, entre otros. -->
+    <tomcat.version>10.1.60</tomcat.version>
     <!-- Verificar la ultima version publicada en
          https://mvnrepository.com/artifact/io.nats/jnats antes de construir
          la imagen si esta version llegara a quedar desactualizada. -->
