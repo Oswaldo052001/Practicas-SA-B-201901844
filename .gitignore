@@ -1,0 +1,6 @@
+
+# --- Practica 8: herramientas locales y logs, nunca se comiten ---
+Claude outputs/
+P8/gitops-bootstrap/*.log
+P8/gitops-bootstrap/kubeseal.exe
+P8/gitops-bootstrap/kubeseal.tar.gz

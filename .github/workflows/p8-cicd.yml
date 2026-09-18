@@ -7,12 +7,17 @@
 # Request. ArgoCD es el UNICO que aplica cambios al cluster, y solo lo hace
 # despues de que ese PR se aprueba y se mergea a mano.
 #
+# Fase de cadena de suministro (2.6): cada imagen se escanea con Trivy
+# (bloquea el pipeline ante CVEs CRITICAL), se genera su SBOM (CycloneDX) y
+# se firma con Cosign en modo keyless (identidad OIDC de GitHub Actions,
+# sin llaves que administrar ni guardar como secreto).
+#
 # Disparadores identicos a P7:
-#   - push / pull_request a cualquier rama: CI (build+test), sin tocar
-#     Docker ni el repo de GitOps.
+#   - push / pull_request a cualquier rama: CI (build+test) + helm lint,
+#     sin tocar Docker ni el repo de GitOps.
 #   - push de un tag "p8-vX.Y.Z": pipeline completo (CI + build/push de
-#     imagenes a ghcr.io/.../sa-p8/<servicio> + PR automatico al repo
-#     GitOps con esas tags).
+#     imagenes a ghcr.io/.../sa-p8/<servicio> + escaneo/firma + PR
+#     automatico al repo GitOps con esas tags).
 #   - workflow_dispatch: correr el CI a mano sin crear un tag.
 #
 # Requiere el secret GITOPS_PAT (fine-grained PAT con permisos Contents:
@@ -103,8 +108,32 @@ jobs:
         run: mvn -B test
 
   # ---------------------------------------------------------------------
+  # Validacion estatica de los charts de Helm del repo GitOps (2.2).
+  # Solo lee/valida el chart (helm lint), no instala nada en ningun
+  # cluster: no es un despliegue directo, es una verificacion de sintaxis.
+  # ---------------------------------------------------------------------
+  helm-lint:
+    name: Helm lint (repo GitOps)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo de manifiestos (GitOps)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GITOPS_REPO }}
+          path: gitops-repo
+
+      - name: Instalar Helm
+        uses: azure/setup-helm@v4
+
+      - name: helm lint --with-subcharts sobre apps/sa-platform
+        working-directory: gitops-repo
+        run: helm lint --with-subcharts apps/sa-platform
+
+  # ---------------------------------------------------------------------
   # CD - build + push de las 7 imagenes a GHCR bajo el namespace sa-p8
-  # (solo en tags p8-v*). Sin tag "latest" a proposito (ver Fase 8/Kyverno).
+  # (solo en tags p8-v*), mas escaneo de vulnerabilidades (Trivy), SBOM
+  # (CycloneDX) y firma keyless (Cosign) de cada imagen. Sin tag "latest"
+  # a proposito (ver Kyverno: disallow-latest-tag en el repo GitOps).
   # ---------------------------------------------------------------------
   docker-build-push:
     name: Docker build/push (${{ matrix.service }})
@@ -114,6 +143,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write   # requerido por Cosign para firma keyless (OIDC)
     strategy:
       matrix:
         service:
@@ -130,7 +160,9 @@ jobs:
 
       - name: Owner en minusculas (GHCR exige minusculas en el nombre del repo)
         id: meta
-        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/sa-p8/${{ matrix.service }}:${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
 
       - name: Login a GitHub Container Registry
         uses: docker/login-action@v3
@@ -148,9 +180,39 @@ jobs:
           context: P5
           file: P5/docker/${{ matrix.service }}/Dockerfile
           push: true
-          tags: ghcr.io/${{ steps.meta.outputs.owner }}/sa-p8/${{ matrix.service }}:${{ github.ref_name }}
+          tags: ${{ steps.meta.outputs.image }}
           cache-from: type=gha,scope=p8-${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=p8-${{ matrix.service }}
+
+      - name: Escaneo de vulnerabilidades con Trivy (bloquea si hay CRITICAL)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.image }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL
+          ignore-unfixed: true
+
+      - name: Generar SBOM (CycloneDX) con Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.image }}
+          format: cyclonedx
+          output: sbom-${{ matrix.service }}.cdx.json
+
+      - name: Publicar SBOM como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.service }}
+          path: sbom-${{ matrix.service }}.cdx.json
+
+      - name: Instalar Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Firmar la imagen con Cosign (keyless, identidad OIDC de GitHub Actions)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: cosign sign --yes ${{ steps.meta.outputs.image }}
 
   # ---------------------------------------------------------------------
   # GitOps - actualiza values-images.yaml en el repo de manifiestos y abre
@@ -213,7 +275,8 @@ jobs:
             Pull Request automatico generado por el pipeline P8 CI/CD.
 
             Las 7 imagenes de sa-platform ya estan publicadas en GHCR con la
-            tag `${{ github.ref_name }}` (ver `ghcr.io/oswaldo052001/sa-p8/*`).
+            tag `${{ github.ref_name }}` (ver `ghcr.io/oswaldo052001/sa-p8/*`),
+            escaneadas con Trivy, con SBOM generado y firmadas con Cosign.
 
             Al aprobar y mergear este PR, ArgoCD sincroniza automaticamente
             el cluster `sa-p8-cluster` con estas nuevas versiones.
