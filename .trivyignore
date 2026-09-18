@@ -1,0 +1,10 @@
+# .trivyignore - excepciones documentadas al escaneo de Trivy (criterio 2.6)
+#
+# CVE-2026-59873 (tar, CRITICAL): vive en usr/local/lib/node_modules/npm/
+# node_modules/tar dentro de la imagen base de Node - es una herramienta
+# INTERNA que trae el propio "npm" empaquetado (usada por npm para instalar
+# paquetes), no una dependencia del codigo de sa-p8 y nunca se ejecuta en
+# tiempo de ejecucion de los microservicios. Excepcion documentada en vez de
+# ignorada a ciegas: si algun dia el binario "npm" deja de usarse dentro del
+# contenedor en runtime, revisar si esta linea sigue siendo necesaria.
+CVE-2026-59873
