@@ -16,15 +16,14 @@ app.get("/health", (_req, res) => {
 // el servicio esta listo para recibir trafico de produccion, no solo que
 // el proceso arranco.
 //
-// FALLO INDUCIDO DELIBERADAMENTE (tag p8-v1.0.6) para demostrar que el
-// AnalysisTemplate lo detecta durante el canary y Argo Rollouts revierte
-// el despliegue solo, sin que llegue al 100% de los usuarios. Se separa de
-// /health a proposito: si rompieramos /health, el readiness probe de k8s
-// nunca marcaria el pod como Ready y el rollout se quedaria atascado antes
-// de llegar siquiera al paso de analisis. Ver P8/README.md e informe de
-// incidente.
+// NOTA (tag p8-v1.0.7): en el tag p8-v1.0.6 este endpoint se rompio
+// DELIBERADAMENTE (devolvia 500 siempre) para demostrar que el
+// AnalysisTemplate del canary lo detecta y que Argo Rollouts revierte el
+// despliegue solo, sin llegar al 100% de los usuarios - evidencia
+// capturada en P8/docs/informe-incidente.md. Este tag revierte el fallo
+// inducido y deja el endpoint sano para la calificacion.
 app.get("/ready-check", (_req, res) => {
-  res.status(500).json({ status: "error", service: "api-gateway", reason: "induced-failure-p8" });
+  res.status(200).json({ status: "ok", service: "api-gateway", check: "ready-check" });
 });
 
 // Captura el cuerpo crudo (sin parsear) para poder reenviarlo tal cual

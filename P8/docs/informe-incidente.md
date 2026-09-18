@@ -26,31 +26,36 @@ inmediato porque el endpoint responde 500 el 100% de las veces, lo que hace
 que el proceso de k6 termine con codigo de salida distinto de cero -> el Job
 termina en `Failed` -> el `AnalysisRun` reporta la metrica como `Failed`.
 
-**TBD**: hora exacta de creacion del AnalysisRun y hora exacta en la que
-paso a `Failed` (pendiente de confirmar contra
-`kubectl describe analysisrun api-gateway-<hash>-3-1 -n sa-p8`).
+Confirmado en el cluster: el `AnalysisRun` `api-gateway-7c4976bdbc-3-1`
+inicio a las `2026-09-18T23:48:12Z` y su Job de k6 termino a las
+`2026-09-18T23:48:42Z` (30 segundos, la duracion configurada del script de
+k6), con el mensaje: *"Metric 'k6-canary-loadtest' assessed Failed due to
+failed (1) > failureLimit (0)"*.
 
 ## Como se contuvo
 
-Al recibir un resultado `Failed` en el `AnalysisRun`, Argo Rollouts abortó
-automaticamente el rollout: detuvo el avance de `setWeight` y devolvio el
-100% del trafico del Service principal a la version `stable` (la version
-sana, previa al fallo inducido), sin ninguna intervencion manual. No hubo
-que hacer rollback manual de Helm ni de ArgoCD; el mecanismo de reversion
-esta incorporado en la propia estrategia `canary` del `Rollout`.
-
-**TBD**: confirmar con `kubectl get rollout api-gateway -n sa-p8` que el
-`Status` volvio a un estado sano (`Healthy`/`Degraded` transitorio) y que
-los pods de la version con el fallo fueron escalados a 0.
+Al recibir el resultado `Failed` en el `AnalysisRun`, Argo Rollouts abortó
+automaticamente el rollout a las `2026-09-18T23:48:42Z`
+(`Aborted At: 2026-09-18T23:48:42Z`, `Reason: RolloutAborted`), con el
+mensaje: *"Rollout aborted update to revision 3: Step-based analysis phase
+error/failed: Metric 'k6-canary-loadtest' assessed Failed due to failed (1)
+> failureLimit (0)"*. El evento `SwitchService` confirma que el selector
+del Service `api-gateway-canary` volvio de la revision con el fallo
+(`7c4976bdbc`) a la revision estable (`66c84f49d4`), y el ReplicaSet de la
+revision con el fallo se escalo de 1 a 0 replicas. Todo esto ocurrio sin
+ninguna intervencion manual: no hubo que hacer rollback manual de Helm ni
+de ArgoCD; el mecanismo de reversion esta incorporado en la propia
+estrategia `canary` del `Rollout`.
 
 ## Tiempo de recuperacion
 
-**TBD**: calcular como la diferencia entre la hora en que Argo Rollouts creo
-el primer `AnalysisRun` para la revision con el fallo (inicio de la
-deteccion) y la hora en que el `Rollout` quedo con el 100% del trafico de
-vuelta en `stable` (fin de la contencion). Al ser un mecanismo automatico
-end-to-end, se espera del orden de minutos (un ciclo de analisis completo
-de k6 dura ~20s mas el tiempo de creacion/scheduling del Job).
+Desde que el `AnalysisRun` inicio (`23:48:12Z`) hasta que el `Rollout`
+quedo abortado y con el trafico devuelto a `stable` (`Aborted At
+23:48:42Z`, `SwitchService` segundos despues) el tiempo total de
+recuperacion fue de **aproximadamente 1 minuto**, sin intervencion
+humana. Es consistente con lo esperado: el ciclo de analisis de k6 dura
+30s mas el tiempo de scheduling del Job y el tiempo de reaccion del
+controller de Argo Rollouts.
 
 ## Como prevenirlo
 
