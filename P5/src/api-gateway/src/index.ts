@@ -9,6 +9,24 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok", service: "api-gateway" });
 });
 
+// /ready-check: chequeo funcional MAS PROFUNDO que /health (que solo
+// prueba que el proceso Express esta vivo, usado por los probes de
+// Kubernetes). Este endpoint es el que valida el AnalysisTemplate del
+// canary con k6 (criterio 2.4/2.5) - simula una verificacion real de que
+// el servicio esta listo para recibir trafico de produccion, no solo que
+// el proceso arranco.
+//
+// FALLO INDUCIDO DELIBERADAMENTE (tag p8-v1.0.6) para demostrar que el
+// AnalysisTemplate lo detecta durante el canary y Argo Rollouts revierte
+// el despliegue solo, sin que llegue al 100% de los usuarios. Se separa de
+// /health a proposito: si rompieramos /health, el readiness probe de k8s
+// nunca marcaria el pod como Ready y el rollout se quedaria atascado antes
+// de llegar siquiera al paso de analisis. Ver P8/README.md e informe de
+// incidente.
+app.get("/ready-check", (_req, res) => {
+  res.status(500).json({ status: "error", service: "api-gateway", reason: "induced-failure-p8" });
+});
+
 // Captura el cuerpo crudo (sin parsear) para poder reenviarlo tal cual
 // llego, sin importar si es JSON (REST), una consulta GraphQL, o vacio.
 app.use(express.text({ type: "*/*", limit: "5mb" }));

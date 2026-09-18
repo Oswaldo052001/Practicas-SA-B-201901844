@@ -31,7 +31,7 @@ export const options = {
 // Por defecto apunta al Service normal (para correrlo a mano con
 // port-forward); dentro del cluster, el AnalysisTemplate sobreescribe
 // TARGET_URL para apuntar especificamente al canary.
-const TARGET = __ENV.TARGET_URL || 'http://localhost:3000/health';
+const TARGET = __ENV.TARGET_URL || 'http://localhost:3000/ready-check';
 
 export default function () {
   const res = http.get(TARGET);
