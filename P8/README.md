@@ -75,12 +75,12 @@ Repo separado: Practicas-SA-B-201901844-gitops
 |---|---|
 | Repositorio GitOps | https://github.com/Oswaldo052001/Practicas-SA-B-201901844-gitops |
 | Aplicacion en ArgoCD | `sa-platform` (namespace `argocd`), despliega al namespace `sa-p8` del cluster GKE |
-| Ejecucion exitosa del pipeline | **TBD** - URL al Actions run verde (candidato: tag `p8-v1.0.7` una vez revertido el fallo inducido) |
-| Reversion automatica | **TBD** - depende de confirmar `AnalysisRun` en `Failed` + Rollout revertido a stable (ver `docs/informe-incidente.md`) |
-| Despliegue rechazado por politica | **TBD** - evidencia del rechazo de Kyverno (`kubectl run test-latest-tag --image=nginx:latest` -> denegado por `disallow-latest-tag`) |
-| Bloqueo por vulnerabilidad critica | **TBD** - Actions run bloqueado por Trivy (candidatos: runs fallidos de `pago-service` en tags p8-v1.0.2 a p8-v1.0.4 por CVEs de Tomcat, o de `cronjob-registro` por CVE-2026-59873 de `tar`) |
-| Imagen firmada (Cosign) | `ghcr.io/oswaldo052001/sa-p8/api-gateway:p8-v1.0.6` (firma keyless verificable con `cosign verify`) |
-| Reporte de prueba de carga | [`tests/k6/loadtest.js`](tests/k6/loadtest.js) - mismo script usado en el `AnalysisTemplate` del canary |
+| Ejecucion exitosa del pipeline | https://github.com/Oswaldo052001/Practicas-SA-B-201901844/actions/runs/35407261475 (tag `p8-v1.0.7`, 7 imagenes + helm-lint en verde) |
+| Reversion automatica | Deteccion: https://github.com/Oswaldo052001/Practicas-SA-B-201901844/actions/runs/35311989880 (tag `p8-v1.0.6`, introduce el fallo). Evidencia completa de la reversion (AnalysisRun `Failed` + Rollout `Aborted` + timestamps reales) en [`docs/informe-incidente.md`](docs/informe-incidente.md) |
+| Despliegue rechazado por politica | Ver seccion ["Politicas de Kyverno"](#politicas-de-kyverno) mas abajo - salida real de `kubectl run test-latest-tag --image=nginx:latest` denegada por `disallow-latest-tag` |
+| Bloqueo por vulnerabilidad critica | https://github.com/Oswaldo052001/Practicas-SA-B-201901844/actions/runs/35309920390/job/105489752044 (Trivy bloquea `pago-service` por CVEs CRITICAL de Tomcat, tag `p8-v1.0.4`, antes del fix aplicado en `p8-v1.0.5`) |
+| Imagen firmada (Cosign) | `ghcr.io/oswaldo052001/sa-p8/api-gateway:p8-v1.0.7` (firma keyless verificable con `cosign verify`) |
+| Reporte de prueba de carga | [`tests/k6/loadtest.js`](tests/k6/loadtest.js) - mismo script usado en el `AnalysisTemplate` del canary. Ejecucion real (fallando a proposito) documentada en [`docs/informe-incidente.md`](docs/informe-incidente.md) |
 | Video demostrativo | **TBD** - pendiente de grabar (5-8 min) |
 
 > Nota: el pipeline de este proyecto bloquea sobre **push de tag** (no sobre
@@ -100,9 +100,13 @@ permanente, en el tag `p8-v1.0.6`. El `AnalysisTemplate` del canary corre
 el script de k6 contra ese endpoint en cada paso de `setWeight`; al fallar
 los umbrales (`http_req_failed rate<0.05`), el Job de k6 termina con
 codigo distinto de cero, lo que Argo Rollouts interpreta como metrica
-`Failed`, abortando el rollout y devolviendo el 100% del trafico a la
-version estable sin intervencion manual. Detalle completo, tiempos y
-evidencia en [`docs/informe-incidente.md`](docs/informe-incidente.md).
+`Failed`. **Confirmado en el cluster real**: el `AnalysisRun` paso a
+`Failed` (`"assessed Failed due to failed (1) > failureLimit (0)"`) y el
+`Rollout` aborto automaticamente (`Reason: RolloutAborted`), devolviendo
+el 100% del trafico a la version estable en aproximadamente 1 minuto, sin
+intervencion manual. El tag `p8-v1.0.7` revierte el fallo inducido una vez
+capturada esta evidencia. Detalle completo, timestamps reales y los 5
+campos del informe en [`docs/informe-incidente.md`](docs/informe-incidente.md).
 
 ## Politicas de Kyverno
 
