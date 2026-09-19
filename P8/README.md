@@ -79,7 +79,7 @@ Repo separado: Practicas-SA-B-201901844-gitops
 | Reversion automatica | Deteccion: https://github.com/Oswaldo052001/Practicas-SA-B-201901844/actions/runs/35311989880 (tag `p8-v1.0.6`, introduce el fallo). Evidencia completa de la reversion (AnalysisRun `Failed` + Rollout `Aborted` + timestamps reales) en [`docs/informe-incidente.md`](docs/informe-incidente.md) |
 | Despliegue rechazado por politica | Ver seccion ["Politicas de Kyverno"](#politicas-de-kyverno) mas abajo - salida real de `kubectl run test-latest-tag --image=nginx:latest` denegada por `disallow-latest-tag` |
 | Bloqueo por vulnerabilidad critica | https://github.com/Oswaldo052001/Practicas-SA-B-201901844/actions/runs/35309920390/job/105489752044 (Trivy bloquea `pago-service` por CVEs CRITICAL de Tomcat, tag `p8-v1.0.4`, antes del fix aplicado en `p8-v1.0.5`) |
-| Imagen firmada (Cosign) | `ghcr.io/oswaldo052001/sa-p8/api-gateway:p8-v1.0.7` (firma keyless verificable con `cosign verify`) |
+| Imagen firmada (Cosign) | `ghcr.io/oswaldo052001/sa-p8/api-gateway:p8-v1.0.7` - **`cosign verify` confirmado en vivo** (identidad `p8-cicd.yml`, tag `p8-v1.0.7`, commit `3a3cfc4`, OIDC de GitHub Actions, ver comando abajo) |
 | Reporte de prueba de carga | [`tests/k6/loadtest.js`](tests/k6/loadtest.js) - mismo script usado en el `AnalysisTemplate` del canary. Ejecucion real (fallando a proposito) documentada en [`docs/informe-incidente.md`](docs/informe-incidente.md) |
 | Video demostrativo | **TBD** - pendiente de grabar (5-8 min) |
 
@@ -124,3 +124,21 @@ policy Pod/sa-p8/test-latest-tag for resource violation:
 disallow-latest-tag:
   require-image-tag: 'validation error: usar la etiqueta ":latest" no esta permitido...'
 ```
+
+
+## Verificacion de la firma (Cosign)
+
+```
+cosign verify ghcr.io/oswaldo052001/sa-p8/api-gateway:p8-v1.0.7 \
+  --certificate-identity-regexp "https://github.com/Oswaldo052001/Practicas-SA-B-201901844/.*" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Confirmado en vivo (2026-09-19): verificacion exitosa, con
+`githubWorkflowName: "P8 - CI/CD GitOps"`,
+`githubWorkflowRef: "refs/tags/p8-v1.0.7"`,
+`githubWorkflowSha: "3a3cfc41ae29bdc5baf6afd27afe9d5723873eab"` y
+`Issuer: https://token.actions.githubusercontent.com` - prueba de que la
+imagen fue firmada exactamente por el pipeline de CI de este repo, de
+forma keyless (sin llaves privadas que gestionar), usando la identidad
+OIDC nativa de GitHub Actions.
