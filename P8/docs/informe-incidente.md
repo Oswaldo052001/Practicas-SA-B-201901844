@@ -71,3 +71,37 @@ controller de Argo Rollouts.
   `require-run-as-nonroot`) de `Audit` a `Enforce` una vez validado que no
   rompen los subcharts de terceros, para reducir superficie de fallos
   similares por configuracion insegura.
+
+
+## Addendum: segundo incidente encontrado al revertir el fallo (2026-09-19)
+
+Al revertir el fallo inducido (tag `p8-v1.0.7`) y dejar `/ready-check`
+respondiendo `200` de nuevo, el `AnalysisRun` de la revision 4 **volvio a
+fallar** pese a que el codigo ya estaba corregido
+(`api-gateway-77696dbd78-4-1`, `Failed`). Investigando los logs del Job de
+k6 se vio que las respuestas eran rapidas (~17ms promedio) pero con 0% de
+exito en el check de status 200 - no era un timeout, sino que las
+peticiones llegaban a un destino que no respondia 200.
+
+**Causa real**: Argo Rollouts cambia el selector del Service
+`api-gateway-canary` al pod nuevo (`SwitchService`) practicamente al mismo
+tiempo que arranca el `AnalysisRun` del paso. El pod nuevo puede tardar
+unos segundos en pasar su `readinessProbe` (`initialDelaySeconds: 5` +
+primer chequeo) antes de que Kubernetes lo agregue como endpoint Ready del
+Service. Si el Job de k6 arranca en esa ventana, el Service no tiene
+ningun endpoint disponible y las conexiones se rechazan de inmediato - un
+falso negativo del proceso de validacion, no un fallo real de la
+aplicacion.
+
+**Fix aplicado**: se agrego un `pause: { duration: 20s }` entre cada
+`setWeight` y su `analysis` correspondiente en `rollout.yaml`, dandole
+margen al pod nuevo para quedar Ready antes de que arranque la prueba de
+carga. Con el fix, los 3 pasos de analisis (25%/50%/75%) de la revision 4
+pasaron `Successful` y el rollout se promovio al 100% sin intervencion
+adicional (`kubectl get application sa-platform -n argocd` ->
+`Synced`/`Healthy`).
+
+Esto refuerza el punto de "como prevenirlo" de arriba: el proceso de
+validacion automatizada tambien necesita disenarse contra condiciones de
+carrera propias de Kubernetes (tiempo de arranque/readiness), no solo
+contra fallos de la aplicacion.
