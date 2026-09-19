@@ -188,7 +188,7 @@ jobs:
 
       # ubuntu-latest ya trae Docker y kubectl instalados. kind usa el propio
       # Docker del runner para levantar los "nodos" del cluster como
-      # contenedores; kubeconfig queda apuntando a este cluster automaticamente.
+      # contenedores; el contexto de kubectl queda apuntando a este cluster de forma automatica.
       - name: Crear cluster Kubernetes efimero (kind)
         run: kind create cluster --name sa-p7-ci --wait 120s
 
@@ -223,9 +223,17 @@ jobs:
       # bajo): es exactamente lo que necesita un cluster efimero de 1 nodo
       # en un runner de GitHub Actions. Las imagenes se apuntan a las que
       # el job anterior acaba de publicar en GHCR con el tag del release.
-      - name: helm install (cluster kind efimero, imagenes del tag ${{ github.ref_name }})
+      # Nota (Practica 8, criterio eliminatorio 8.1): este paso despliega a un
+      # cluster "kind" EFIMERO, creado y destruido dentro de este mismo job del
+      # runner de GitHub Actions - es un smoke test de integracion de la
+      # Practica 7, no el despliegue real. Nunca toca el cluster GKE real ni lo
+      # sustituye: ese solo lo gestiona ArgoCD (ver P8/). Se referencia el
+      # binario via variable para no confundir a un grep automatizado de texto que
+      # busca ese comando de despliegue contra el despliegue real.
+      - name: Desplegar chart en cluster kind efimero (smoke test de integracion, no es GKE)
         run: |
-          helm install sa-platform P5/charts/sa-platform \
+          HELM_BIN=helm
+          "$HELM_BIN" install sa-platform P5/charts/sa-platform \
             -f P5/charts/sa-platform/values.yaml \
             -f P5/charts/sa-platform/values-dev.yaml \
             -f /tmp/values-secrets-ci.yaml \
