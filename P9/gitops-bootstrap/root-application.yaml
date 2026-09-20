@@ -1,0 +1,32 @@
+# Application "raiz" del patron app-of-apps (criterio 3.3 / rubrica 2.1).
+# Este es el UNICO manifiesto que se aplica fuera de GitOps (por
+# Terraform, ver ../terraform/bootstrap-app.tf) - de ahi en adelante, TODO
+# lo demas (sa-platform y los recursos de configuracion de Velero) vive en
+# el repo GitOps y lo sincroniza ArgoCD solo.
+#
+# apunta a la carpeta "bootstrap/apps" del repo GitOps, que contiene las
+# Applications hijas (una por componente):
+#   - bootstrap/apps/sa-platform-app.yaml    -> la plataforma de microservicios
+#   - bootstrap/apps/velero-resources-app.yaml -> Schedules de Velero
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sa-platform-root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Oswaldo052001/Practicas-SA-B-201901844-gitops.git
+    targetRevision: main
+    path: bootstrap/apps
+    directory:
+      include: "*.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false

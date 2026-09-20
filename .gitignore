@@ -4,3 +4,13 @@ Claude outputs/
 P8/gitops-bootstrap/*.log
 P8/gitops-bootstrap/kubeseal.exe
 P8/gitops-bootstrap/kubeseal.tar.gz
+
+# --- Practica 9: el estado de Terraform vive SOLO en el backend remoto
+# (requisito previo 8.1: "no existe archivo de estado en el repositorio").
+# .terraform.lock.hcl SI se comitea (buena practica, pins de version de
+# providers) - por eso no esta en esta lista.
+P9/**/.terraform/
+P9/**/terraform.tfstate
+P9/**/terraform.tfstate.backup
+P9/**/*.tfplan
+P9/**/crash.log

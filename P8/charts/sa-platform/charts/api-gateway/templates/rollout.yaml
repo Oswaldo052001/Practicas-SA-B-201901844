@@ -32,6 +32,12 @@ spec:
         checksum/shared-config: {{ .Values.global.namespace | sha256sum }}
     spec:
       serviceAccountName: {{ include "api-gateway.serviceAccountName" . }}
+      # Practica 9, criterio 2.5 "Resiliencia ante perdida de nodo" (agregado
+      # en P9; ver values-p9-resilience.yaml en el repo GitOps).
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
