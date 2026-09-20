@@ -55,7 +55,7 @@ resource "google_container_node_pool" "sa_p8_nodes" {
     ]
 
     labels = {
-      practica = "p9"
+      practica = "p8"
     }
   }
 
