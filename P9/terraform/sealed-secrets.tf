@@ -19,7 +19,11 @@ resource "null_resource" "sealed_secrets_key_restore" {
   }
 
   provisioner "local-exec" {
-    command = "${path.module}/scripts/restore-sealed-secrets-key.sh"
+    # interpreter fuerza a correr esto con bash (la de Git for Windows),
+    # incluso en Windows: sin esto, Terraform intenta correrlo con cmd.exe,
+    # que no sabe interpretar un script de bash.
+    interpreter = ["bash", "-c"]
+    command     = "${path.module}/scripts/restore-sealed-secrets-key.sh"
 
     environment = {
       SEALED_SECRETS_NAMESPACE     = var.sealed_secrets_namespace
