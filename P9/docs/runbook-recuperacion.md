@@ -81,11 +81,17 @@ las tres Applications quedan `Synced`/`Healthy`. **RTO real = B − A.**
 
 ## 4. Verificar que los datos son reales (no un volumen vacío)
 
+La contraseña de postgres ya está disponible como variable de entorno
+DENTRO del propio pod (la inyecta el SealedSecret descifrado) - por eso
+estos comandos usan `sh -c` para que la sustitución de `$POSTGRES_PASSWORD`
+ocurra DENTRO del pod, no en la terminal de quien ejecuta el runbook. Así
+el mismo comando funciona igual en bash, PowerShell o cmd, sin depender
+de una variable de entorno local que nadie más que el autor original
+tendría configurada.
+
 ```bash
-kubectl -n sa-p8 exec -it sa-platform-postgresql-0 -- \
-  env PGPASSWORD=$POSTGRES_PASSWORD psql -U postgres -c "\l"
-kubectl -n sa-p8 exec -it sa-platform-postgresql-0 -- \
-  env PGPASSWORD=$POSTGRES_PASSWORD psql -U postgres -d <nombre_bd> -c "SELECT count(*) FROM <alguna_tabla_conocida>;"
+kubectl -n sa-p8 exec -it sa-platform-postgresql-0 -- sh -c 'PGPASSWORD=$POSTGRES_PASSWORD psql -U postgres -c "\l"'
+kubectl -n sa-p8 exec -it sa-platform-postgresql-0 -- sh -c 'PGPASSWORD=$POSTGRES_PASSWORD psql -U postgres -d <nombre_bd> -c "SELECT count(*) FROM <alguna_tabla_conocida>;"'
 ```
 
 El conteo debe coincidir con lo que había antes del desastre (comparar
@@ -94,8 +100,16 @@ contra el número anotado en el informe de la prueba de DR, campo
 
 ## 5. Verificar que los secretos siguen siendo descifrables
 
+En bash/Git Bash/WSL:
+
 ```bash
 kubectl -n sa-p8 get secret sa-platform-postgresql -o jsonpath='{.data.db-password}' | base64 -d
+```
+
+En PowerShell (no tiene `base64` por defecto, se decodifica así):
+
+```powershell
+[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String((kubectl -n sa-p8 get secret sa-platform-postgresql -o jsonpath="{.data.db-password}")))
 ```
 
 Si el comando devuelve la contraseña en texto plano (no un error de
