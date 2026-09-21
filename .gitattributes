@@ -1,0 +1,8 @@
+# Los scripts .sh los ejecuta directamente un interprete bash (Terraform
+# local-exec, restore-sealed-secrets-key.sh) via su linea "shebang"
+# (#!/usr/bin/env bash). Si Windows los guarda con CRLF, esa linea queda
+# como "#!/usr/bin/env bash\r" y el interprete falla con un error tipo
+# "bash\r: No such file or directory" - por eso estos SI necesitan forzar
+# LF, a diferencia del resto del repositorio (que se deja como esta,
+# fuera de alcance de P9: ver comentario en el runbook de recuperacion).
+*.sh text eol=lf
