@@ -19,10 +19,13 @@ resource "null_resource" "sealed_secrets_key_restore" {
   }
 
   provisioner "local-exec" {
-    # interpreter fuerza a correr esto con bash (la de Git for Windows),
-    # incluso en Windows: sin esto, Terraform intenta correrlo con cmd.exe,
-    # que no sabe interpretar un script de bash.
-    interpreter = ["bash", "-c"]
+    # interpreter fuerza a correr esto con bash, incluso en Windows: sin
+    # esto, Terraform intenta correrlo con cmd.exe, que no sabe interpretar
+    # un script de bash. Usa var.bash_path en vez de "bash" a secas porque
+    # en Windows "bash" resuelve al lanzador de WSL (una distro Linux
+    # aparte, sin kubectl/gcloud/velero) y no al bash de Git for Windows -
+    # ver comentario en variables.tf.
+    interpreter = [var.bash_path, "-c"]
     command     = "${path.module}/scripts/restore-sealed-secrets-key.sh"
 
     environment = {

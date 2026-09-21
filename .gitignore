@@ -14,3 +14,6 @@ P9/**/terraform.tfstate
 P9/**/terraform.tfstate.backup
 P9/**/*.tfplan
 P9/**/crash.log
+# terraform.tfvars local (ej. bash_path especifico de la maquina de cada
+# quien) - nunca compartido, cada quien lo crea con su propia ruta.
+P9/**/terraform.tfvars

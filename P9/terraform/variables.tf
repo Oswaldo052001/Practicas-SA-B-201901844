@@ -57,3 +57,9 @@ variable "gitops_repo_url" {
   type        = string
   default     = "https://github.com/Oswaldo052001/Practicas-SA-B-201901844-gitops.git"
 }
+
+variable "bash_path" {
+  description = "Ejecutable de bash que usan los provisioners \"local-exec\" de este stack (por ahora solo el de restauracion de la llave de Sealed Secrets). En Windows, \"bash\" a secas resuelve al lanzador de WSL (System32\\bash.exe) en vez de al bash de Git for Windows - y WSL es una distro Linux aparte, sin kubectl/gcloud/velero en su PATH. El bash de Git for Windows si hereda el PATH de Windows completo. Default correcto para Linux/macOS (donde \"bash\" ya es el bash real); en Windows se sobreescribe con la variable de entorno TF_VAR_bash_path (ver docs/runbook-recuperacion.md, paso de bootstrap)."
+  type        = string
+  default     = "bash"
+}
