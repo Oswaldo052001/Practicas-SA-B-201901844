@@ -30,7 +30,6 @@ Universidad San Carlos de Guatemala, Software Avanzado, Sección B, carné
 | Restauración de datos | [`docs/informe-prueba-dr.md`](docs/informe-prueba-dr.md), sección 4, y [`docs/evidencia-restauracion-datos.md`](docs/evidencia-restauracion-datos.md) |
 | Prueba de pérdida de nodo | [`docs/evidencia-perdida-nodo.md`](docs/evidencia-perdida-nodo.md) |
 | RTO y RPO declarados | Objetivo: RTO ≤ 30 min, RPO ≤ 24h (justificación en `docs/informe-prueba-dr.md`, sección 1). Medidos: RTO ≈ 86 min (no cumplido), RPO < 50 min (cumplido) |
-| Video demostrativo | `[PENDIENTE]` — URL y minutaje por punto |
 
 **Nota:** el enunciado (sección 4.1) es explícito en que un enlace
 ausente, roto o que requiera autenticación se califica con cero en ese
@@ -43,4 +42,4 @@ Google Drive ni en una carpeta local).
 
 La prueba de DR (reconstrucción, llave de Sealed Secrets, restauración de
 datos y pérdida de nodo) se ejecutó y está documentada en
-`docs/informe-prueba-dr.md`. Solo falta el video demostrativo.
+`docs/informe-prueba-dr.md`.
