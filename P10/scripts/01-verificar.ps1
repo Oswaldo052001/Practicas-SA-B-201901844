@@ -1,4 +1,4 @@
-# Paso 3 - Verificacion de punta a punta del stack de la Practica 10.
+﻿# Paso 3 - Verificacion de punta a punta del stack de la Practica 10.
 # Revisa: ArgoCD, pods, scraping de Prometheus, reglas, tablero, trazas en
 # Tempo, registros en Loki y AnalysisTemplate. Imprime OK/FALLA por punto y
 # guarda el resultado en P10\docs\evidencias\verificacion.txt.
@@ -24,7 +24,7 @@ Reg ($ds -and $ds.Split('/')[0] -eq $ds.Split('/')[1]) "DaemonSet otel-collector
 Paso "Prometheus recolecta los servicios"
 foreach ($s in "api-gateway","auth-service","reserva-service") {
   $arriba = Prom-Valor "sum(up{namespace=`"$Ns`",service=`"$s`"})"
-  Reg ($arriba -ge 1) "scrape de $s: pods arriba = $arriba"
+  Reg ($arriba -ge 1) "scrape de ${s}: pods arriba = $arriba"
 }
 $rps = Prom-Valor 'sa:http_requests:rate5m'
 Reg ($rps -gt 0) "regla de grabacion sa:http_requests:rate5m = $rps req/s"
@@ -35,7 +35,7 @@ $cuentaNegocio = Prom-Valor 'sum(app_logins_total)'
 Reg ($cuentaNegocio -gt 0) "metrica de negocio app_logins_total = $cuentaNegocio"
 
 Paso "AnalysisTemplate del canary (consulta Prometheus)"
-$prov = kubectl -n $Ns get analysistemplate api-gateway-canary-metrics -o jsonpath="{.spec.metrics[0].provider.prometheus.address}" 2>$null
+$prov = kubectl -n $Ns get analysistemplate api-gateway-canary-metrics -o jsonpath="{.spec.args[?(@.name=='prometheus-address')].value}" 2>$null
 Reg ($prov -like "*kps-prometheus*") "AnalysisTemplate api-gateway-canary-metrics -> $prov"
 
 Paso "Tempo recibe trazas"
@@ -47,7 +47,7 @@ Reg ($nTr -gt 0) "Tempo devuelve $nTr trazas recientes"
 Paso "Loki recibe registros (con trace_id)"
 $podL = kubectl -n $Obs get pod -l app.kubernetes.io/name=loki -o jsonpath="{.items[0].metadata.name}"
 $ahoraNs = [int64]((Get-Date).ToUniversalTime() - [datetime]'1970-01-01').TotalSeconds * 1000000000
-$desde = $ahoraNs - 600 * 1000000000
+$desde = $ahoraNs - ([int64]600 * 1000000000)
 $q = [uri]::EscapeDataString('{service_name="api-gateway"} | trace_id != ""')
 $lk = kubectl -n $Obs exec $podL -- wget -qO- "http://localhost:3100/loki/api/v1/query_range?query=$q&limit=3&start=$desde&end=$ahoraNs" 2>$null
 $nLk = 0; if ($lk) { $nLk = @(($lk | ConvertFrom-Json).data.result).Count }
@@ -61,3 +61,4 @@ $fallas = ($informe | Where-Object { $_ -like "[[]FALLA]*" }).Count
 Guardar-Evidencia "verificacion.txt" ("Verificacion " + (Ahora) + "`n" + ($informe -join "`n"))
 Write-Host ""
 if ($fallas -eq 0) { Write-Host "TODO EN ORDEN" -ForegroundColor Green } else { Write-Host "$fallas punto(s) con FALLA - revisa arriba y avisame" -ForegroundColor Red }
+

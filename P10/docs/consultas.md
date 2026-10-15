@@ -16,7 +16,7 @@ sa:http_error_ratio:rate5m
 histogram_quantile(0.95, sum by (le) (rate(app_http_request_duration_seconds_bucket{service="api-gateway",route=~"/api/.*"}[5m])))
 
 # Fracción de peticiones más lentas que 2 s (SLI de latencia)
-1 - sum(rate(app_http_request_duration_seconds_bucket{service="api-gateway",route=~"/api/.*",le="2"}[5m])) / sum(rate(app_http_request_duration_seconds_count{service="api-gateway",route=~"/api/.*"}[5m]))
+1 - sum(rate(app_http_request_duration_seconds_bucket{service="api-gateway",route=~"/api/.*",le="2.0"}[5m])) / sum(rate(app_http_request_duration_seconds_count{service="api-gateway",route=~"/api/.*"}[5m]))
 
 # Quema del presupuesto (burn rate)
 sa:http_error_ratio:rate5m / 0.01

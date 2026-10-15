@@ -43,7 +43,7 @@ Paso "Un trace_id real de una peticion con error (para empezar por la traza)"
 $podL = kubectl -n $Obs get pod -l app.kubernetes.io/name=loki -o jsonpath="{.items[0].metadata.name}"
 $ahora = [int64]((Get-Date).ToUniversalTime() - [datetime]'1970-01-01').TotalSeconds * 1000000000
 $q = [uri]::EscapeDataString('{service_name="api-gateway"} | level="error" | trace_id != ""')
-$res = kubectl -n $Obs exec $podL -- wget -qO- "http://localhost:3100/loki/api/v1/query_range?query=$q&limit=1&start=$($ahora - 300*1000000000)&end=$ahora" 2>$null
+$res = kubectl -n $Obs exec $podL -- wget -qO- "http://localhost:3100/loki/api/v1/query_range?query=$q&limit=1&start=$($ahora - ([int64]300 * 1000000000))&end=$ahora" 2>$null
 if ($res) {
   $linea = (($res | ConvertFrom-Json).data.result | Select-Object -First 1).values[0][1]
   Write-Host "  linea de log: $linea"

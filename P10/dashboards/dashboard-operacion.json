@@ -185,7 +185,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "1 - sum(increase(app_http_request_duration_seconds_bucket{service=\"api-gateway\",route=~\"/api/.*\",le=\"2\"}[30d])) / sum(increase(app_http_request_duration_seconds_count{service=\"api-gateway\",route=~\"/api/.*\"}[30d]))",
+          "expr": "1 - sum(increase(app_http_request_duration_seconds_bucket{service=\"api-gateway\",route=~\"/api/.*\",le=\"2.0\"}[30d])) / sum(increase(app_http_request_duration_seconds_count{service=\"api-gateway\",route=~\"/api/.*\"}[30d]))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

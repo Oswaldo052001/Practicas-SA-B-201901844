@@ -1,0 +1,21 @@
+﻿Verificacion 2026-10-14 22:41:17
+[OK]    Application sa-platform-root = Synced/Healthy
+[OK]    Application sa-platform = Synced/Healthy
+[OK]    Application kube-prometheus-stack = Synced/Healthy
+[OK]    Application observability-resources = Synced/Healthy
+[OK]    Deployment loki listo (1)
+[OK]    Deployment tempo listo (1)
+[OK]    Deployment otel-collector listo (1)
+[OK]    Deployment alert-sink listo (1)
+[OK]    Deployment loadgen listo (1)
+[OK]    DaemonSet otel-collector-logs = 5/5
+[OK]    scrape de api-gateway: pods arriba = 2
+[OK]    scrape de auth-service: pods arriba = 1
+[OK]    scrape de reserva-service: pods arriba = 2
+[OK]    regla de grabacion sa:http_requests:rate5m = 4.00701754385965 req/s
+[OK]    PrometheusRule sa-p8-slo cargada
+[OK]    metrica de negocio app_logins_total = 1126
+[OK]    AnalysisTemplate api-gateway-canary-metrics -> http://kps-prometheus.observability.svc.cluster.local:9090
+[OK]    Tempo devuelve 5 trazas recientes
+[OK]    Loki devuelve 3 flujos de api-gateway con trace_id en los ultimos 10 min
+[OK]    ConfigMap del tablero con etiqueta grafana_dashboard

@@ -1,0 +1,51 @@
+﻿[2026-10-14 22:42:13] Rollout: rollout.argoproj.io/api-gateway
+[2026-10-14 22:42:14] Estado inicial: Healthy stable=69d85b548b
+[2026-10-14 22:42:18] commit/push del fallo enviado
+[2026-10-14 22:44:34] REVERSION AUTOMATICA detectada a los 136 s del push (fase=Degraded)
+[2026-10-14 22:44:34] AnalysisRun: analysisrun.argoproj.io/api-gateway-864c9c5f74-4-2
+[2026-10-14 22:44:35] Resultado por metrica:
+
+NAME                           STATUS       AGE
+api-gateway-6b687fb9b8-2-2     Error        81m
+api-gateway-69d85b548b-3-2     Error        68m
+api-gateway-69d85b548b-3-2.1   Error        55m
+api-gateway-69d85b548b-3-2.2   Error        47m
+api-gateway-69d85b548b-3-2.3   Successful   33m
+api-gateway-69d85b548b-3-6     Successful   31m
+api-gateway-69d85b548b-3-10    Successful   28m
+api-gateway-864c9c5f74-4-2     Failed       78s
+
+
+        Analysis:
+        Analysis:
+        Analysis:
+  Abort:               true
+  Aborted At:          2026-10-15T04:44:32Z
+    Message:               Rollout has minimum availability
+    Message:               Rollout is not healthy
+    Message:               RolloutCompleted
+    Message:               Rollout is paused
+    Message:               Rollout aborted update to revision 4: Step-based analysis phase error/failed: Metric "error-rate" assessed Failed due to failed (1) > failureLimit (0)
+    Reason:                RolloutAborted
+  Message:                 RolloutAborted: Rollout aborted update to revision 4: Step-based analysis phase error/failed: Metric "error-rate" assessed Failed due to failed (1) > failureLimit 
+(0)
+  Type     Reason                  Age                From                 Message
+  Warning  AnalysisRunError        52m                rollouts-controller  Step Analysis Run 'api-gateway-69d85b548b-3-2.1' Status New: 'Error' Previous: 'Running'
+  Warning  RolloutAborted          45m (x2 over 52m)  rollouts-controller  Rollout aborted update to revision 3: Step-based analysis phase error/failed: Metric "error-rate" assessed Error 
+due to consecutiveErrors (9) > consecutiveErrorLimit (8): "Error Message: could not evaluate successCondition "result[0] < 0.05": metric result is nil or empty: no data returned from the 
+metric provider"
+  Warning  AnalysisRunError        45m                rollouts-controller  Step Analysis Run 'api-gateway-69d85b548b-3-2.2' Status New: 'Error' Previous: 'Running'
+  Normal   AnalysisRunSuccessful   26m                rollouts-controller  Step Analysis Run 'api-gateway-69d85b548b-3-10' Status New: 'Successful' Previous: 'Running'
+  Normal   AnalysisRunRunning      79s                rollouts-controller  Step Analysis Run 'api-gateway-864c9c5f74-4-2' Status New: 'Running' Previous: ''
+  Warning  AnalysisRunFailed       4s                 rollouts-controller  Step Analysis Run 'api-gateway-864c9c5f74-4-2' Status New: 'Failed' Previous: 'Running'
+  Warning  RolloutAborted          4s                 rollouts-controller  Rollout aborted update to revision 4: Step-based analysis phase error/failed: Metric "error-rate" assessed Failed 
+due to failed (1) > failureLimit (0)
+
+
+
+[2026-10-14 22:44:40] fallo apagado; el Rollout se re-sincroniza con la configuracion sana
+[2026-10-14 22:45:34] Estado final: Healthy
+
+Detalle del AnalysisRun fallido (api-gateway-864c9c5f74-4-2):
+error-rate: Failed  mediciones = Failed valor=[0.5175276553840846]
+latency-p95: Successful  mediciones = Successful valor=[0.024008859347638113]

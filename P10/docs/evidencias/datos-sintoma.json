@@ -1,0 +1,9 @@
+﻿{
+    "t0":  "2026-10-14 22:54:53",
+    "deteccion_metricas_s":  102,
+    "deteccion_alerta_s":  287,
+    "alerta_a_causa_s":  2,
+    "causa_total_s":  290,
+    "recuperacion_s":  105,
+    "alertas_disparadas":  "SLODisponibilidadQuemaRapida"
+}

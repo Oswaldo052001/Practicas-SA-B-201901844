@@ -30,7 +30,7 @@ usuarios, sobre las rutas `/api/*` (se excluyen los probes de Kubernetes
   frente a los despliegues canary frecuentes.
 - **Por qué 2 s.** Es el umbral a partir del cual la interfaz de selección
   de asientos deja de sentirse interactiva. El histograma tiene un bucket
-  exacto en `le="2"`, por lo que el SLI se calcula sin interpolar.
+  exacto en `le="2.0"`, por lo que el SLI se calcula sin interpolar.
 - **Por qué 30 días.** Es el periodo con que se habla de presupuestos de
   error en la industria y coincide con la retención de Prometheus (30 d).
 
