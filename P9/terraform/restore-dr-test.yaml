@@ -1,0 +1,7 @@
+﻿apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: restore-dr-test-usuarios
+  namespace: velero
+spec:
+  backupName: schedule-datos-20260923030014

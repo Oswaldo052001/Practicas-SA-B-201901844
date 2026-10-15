@@ -1,0 +1,132 @@
+================================================================
+ VERIFICACION PRACTICA 8 - v2.0
+ Carnet: 201901844        Fecha: 2026-09-19 09:16
+ Hash del script: d4c7ecf6b666e77f
+================================================================
+
+--- 0. Herramientas y contexto (debe verificarlo el auxiliar)
+  [0;32m[OK][0m    Todas las herramientas presentes
+  Contexto de kubectl : gke_cinetix-p6_us-central1-c_sa-p8-cluster
+  Servidor            : Kubernetes control plane is running at https://34.67.127.163
+  Usuario de ArgoCD   : sin sesion
+  [0;32m[OK][0m    Acceso al cluster confirmado
+
+--- 1. Repositorios
+  [0;32m[OK][0m    Repositorio de codigo accesible
+  [0;32m[OK][0m    Repositorio GitOps accesible
+  [0;32m[OK][0m    Carpeta /P8 presente
+  [0;32m[OK][0m    README de entrega presente
+
+--- ELIMINATORIO: ausencia de despliegue directo (seccion 8.1)
+  [0;32m[OK][0m    Ningun workflow despliega directamente ni almacena kubeconfig
+
+--- ELIMINATORIO: Terraform no despliega la aplicacion (criterio 2.3)
+  [0;32m[OK][0m    Terraform no instala charts ni manifiestos de la aplicacion
+
+--- 2.1 Infraestructura como codigo con Terraform (8 pts)
+  [0;32m[OK][0m    Codigo Terraform encontrado en 1 directorio(s)
+  [0;32m[OK][0m    terraform validate correcto
+  [0;32m[OK][0m    Declara namespaces, cuotas o limites
+  [0;32m[OK][0m    Declara RBAC
+  >> 2.1 = 8 / 8
+
+--- 2.2 Empaquetado con Helm (8 pts)
+  [0;32m[OK][0m    27 chart(s): 3 raiz/raices y 24 subchart(s)
+  [0;32m[OK][0m    Multiples servicios empaquetados
+  [0;32m[OK][0m    helm lint correcto en los charts raiz
+  [0;32m[OK][0m    Valores diferenciados por ambiente (15 archivos)
+  [0;32m[OK][0m    helm lint integrado en el pipeline
+  >> 2.2 = 8 / 8
+
+--- 2.3 GitOps con ArgoCD (14 pts)
+  [0;33m[AVISO][0m Sin sesion de argocd: se consulto el CRD Application directamente
+  sync=Synced  health=Progressing  automated=si
+  repoURL=https://github.com/Oswaldo052001/Practicas-SA-B-201901844-gitops.git
+  [0;32m[OK][0m    Aplicacion sincronizada
+  [0;31m[FALLA][0m Aplicacion NO saludable
+  [0;32m[OK][0m    Apunta al repositorio GitOps declarado
+  [0;32m[OK][0m    El pipeline genera un Pull Request al repositorio GitOps
+  >> 2.3 = 12 / 14
+
+--- 2.4 Entrega progresiva y reversion automatica (14 pts)
+  [0;32m[OK][0m    Rollout encontrado: api-gateway
+  [0;32m[OK][0m    El Rollout lo gestiona ArgoCD (tracking: sa-platform:argoproj.io/Rollout:sa-p8/api-gateway)
+  Estrategia: canary   pasos declarados: 11
+  [0;32m[OK][0m    Tres o mas pasos de promocion
+  [0;32m[OK][0m    AnalysisTemplate definido (1)
+  [0;32m[OK][0m    La promocion esta condicionada al analisis
+  [0;32m[OK][0m    Evidencia de reversion: 2 AnalysisRun fallido(s), abort=false
+
+Name:            api-gateway
+Namespace:       sa-p8
+Status:          [32m✔[0m Healthy
+Strategy:        Canary
+  Step:          11/11
+  SetWeight:     100
+  ActualWeight:  100
+Images:          ghcr.io/oswaldo052001/sa-p8/api-gateway:p8-v1.0.7 ([32mstable[0m)
+Replicas:
+  Desired:       1
+  Current:       1
+  Updated:       1
+  Ready:         1
+  Available:     1
+
+NAME                                                                  KIND         STATUS          AGE  INFO
+⟳ api-gateway                                                         Rollout      [32m✔[0m Healthy       38h  
+├──# revision:4                                                                                         
+│  ├──⧉ [32mapi-gateway-77696dbd78[0m                                        ReplicaSet   [32m✔[0m Healthy       15h  [32mstable[0m
+│  │  └──□ api-gateway-77696dbd78-q8xz4                               Pod          [32m✔[0m Running       15h  ready:1/1
+│  ├──α [0mapi-gateway-77696dbd78-4-1[0m                                    AnalysisRun  [31m✖[0m Failed        15h  [31m✖[0m 1
+│  │  └──⊞ [0mad7bad10-03df-4d83-a5a7-8ff181878ee6.k6-canary-loadtest.1[0m  Job          [31m✖[0m Failed        15h  
+│  ├──α [0mapi-gateway-77696dbd78-4-2[0m                                    AnalysisRun  [32m✔[0m Successful    15h  [32m✔[0m 1
+│  │  └──⊞ [0mcf014d2d-cbc8-40c3-86a1-57ab68acdcad.k6-canary-loadtest.1[0m  Job          [32m✔[0m Successful    15h  
+│  ├──α [0mapi-gateway-77696dbd78-4-6[0m                                    AnalysisRun  [32m✔[0m Successful    15h  [32m✔[0m 1
+│  │  └──⊞ [0me861eaca-83b5-4d3a-8c11-2283c7eed476.k6-canary-loadtest.1[0m  Job          [32m✔[0m Successful    15h  
+│  └──α [0mapi-gateway-77696dbd78-4-10[0m                                   AnalysisRun  [32m✔[0m Successful    15h  [32m✔[0m 1
+│     └──⊞ [0m647acb1a-9d7b-412e-9fbd-c7983d057239.k6-canary-loadtest.1[0m  Job          [32m✔[0m Successful    15h  
+├──# revision:3                                                                                         
+│  ├──⧉ api-gateway-7c4976bdbc                                        ReplicaSet   [0m•[0m ScaledDown    33h  
+  >> 2.4 = 14 / 14
+
+--- 2.5 Validacion automatizada (8 pts)
+  [0;32m[OK][0m    Prueba de carga presente
+  [0;32m[OK][0m    Umbrales definidos
+  [0;32m[OK][0m    Pruebas de humo o integracion presentes
+  [0;32m[OK][0m    El analisis ejecuta pruebas (provider job/web)
+  >> 2.5 = 8 / 8
+
+--- 2.6 Cadena de suministro y politicas (8 pts)
+  [0;32m[OK][0m    Trivy configurado para bloquear ante CVE criticas
+  [0;32m[OK][0m    Firma de imagen verificada con Cosign
+  Politicas activas: 3
+  [0;32m[OK][0m    Tres o mas politicas activas
+  [0;32m[OK][0m    Secretos gestionados de forma segura
+  [0;32m[OK][0m    Sin secretos en texto plano
+  >> 2.6 = 8 / 8
+
+--- Antipatrones (informativo, penalizacion manual)
+  [0;31m[FALLA][0m Uso de la etiqueta latest en manifiestos (-5 pts segun seccion 8)
+  [0;32m[OK][0m    Se declaran limites de recursos
+
+================================================================
+ RESUMEN - carnet 201901844
+================================================================
+  2.1 Terraform ..............  8 / 8
+  2.2 Helm ...................  8 / 8
+  2.3 GitOps con ArgoCD ...... 12 / 14
+  2.4 Entrega progresiva ..... 14 / 14
+  2.5 Validacion automatizada   8 / 8
+  2.6 Seguridad y politicas ..  8 / 8
+  ------------------------------------
+  CONOCIMIENTO ............... 58 / 60
+
+  Pendiente de evaluacion presencial: 40 pts
+    1.1 Documentacion (8)   1.2 Diagrama (8)
+    1.3 Informe de incidente (10)   1.4 Preguntas teoricas (14)
+
+  [0;31mREQUISITOS ELIMINATORIOS INCUMPLIDOS:[0m no-healthy
+  Revisar la seccion 8.1 del enunciado antes de asignar nota.
+
+  Duracion: 104s    Reporte: reporte_p8_201901844.txt
+================================================================
