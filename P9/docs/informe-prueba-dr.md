@@ -1,12 +1,9 @@
-# Informe de la prueba de DR (plantilla, sección 4.2 del enunciado)
+# Informe de la prueba de DR
 
 Universidad San Carlos de Guatemala, Software Avanzado, Sección B, carné
-201901844. Máximo 2 páginas, seis campos exactos. **Pendiente de llenar
-con los datos reales de la ejecución** (marcado `[PENDIENTE]` abajo) —
-Claude no puede correr `terraform`/`kubectl`/`velero`, así que estos
-valores los completa Oswaldo siguiendo
-[`runbook-recuperacion.md`](runbook-recuperacion.md) y pegando aquí las
-marcas de tiempo reales.
+201901844. Los pasos para repetir la prueba están en
+[`runbook-recuperacion.md`](runbook-recuperacion.md). Todas las horas son
+hora local de Guatemala (UTC-6) salvo que se indique UTC.
 
 ## 1. Objetivos declarados
 
@@ -28,61 +25,95 @@ marcas de tiempo reales.
 
 ## 2. Escenario ejecutado
 
-`[PENDIENTE]` — describir exactamente qué se destruyó y en qué orden
-(ejemplo: "`terraform destroy` completo del stack `P9/terraform`,
-incluyendo el cluster GKE, el node pool, ArgoCD, Velero y Sealed Secrets;
-el stack `P9/terraform-durable` NO se tocó").
+Se sembró un usuario de prueba real (`prueba.dr@example.com`, creado por la
+API) y se lanzó un respaldo manual `backup-pre-dr-test` (snapshot
+2026-09-24 03:57:20 UTC, 2/2 volúmenes). Después se ejecutó `terraform
+destroy` completo del stack `P9/terraform` (cluster GKE, node pool, ArgoCD,
+Velero y Sealed Secrets). `P9/terraform-durable` (bucket de respaldos y
+cuenta de servicio) no se tocó. La reconstrucción medida es la del
+2026-10-14: un `terraform apply` sobre el proyecto vacío, seguido de la
+restauración de la llave de Sealed Secrets y de los datos desde Velero.
 
 ## 3. Tiempos medidos
 
-`[PENDIENTE]` — Marca de tiempo A (inicio de `terraform apply` de
-reconstrucción) y Marca de tiempo B (las 3 Applications de ArgoCD en
-`Synced`/`Healthy`), copiadas del runbook. **RTO real = B − A.**
-
-| Marca | Hora |
+| Marca | Hora (14 oct 2026) |
 |---|---|
-| A — inicio de `terraform apply` | `[PENDIENTE]` |
-| B — ArgoCD Synced/Healthy | `[PENDIENTE]` |
-| **RTO real** | `[PENDIENTE]` |
+| A — inicio de `terraform apply` | ≈ 17:01 (derivada: el cluster se creó a las 17:02:34) |
+| B — 3 Applications de ArgoCD en `Synced`/`Healthy` | 18:27:06 (primera observación) |
+| **RTO real** | **≈ 86 min** (objetivo: 30 min, no se cumplió) |
+
+La marca A se calculó a partir de la hora de creación del cluster
+(`gcloud container clusters describe`) porque la línea impresa por el script
+no quedó en el log conservado. Dónde se fue el tiempo: Terraform dejó el
+cluster y las Applications creadas en ≈ 33 min (17:01 a 17:34, incluyendo un
+segundo `apply` por el kubeconfig desactualizado); `sa-platform` quedó
+`OutOfSync` otros ≈ 35 min por CRDs faltantes (Kyverno y Argo Rollouts); y ≈ 10
+min más por la llave de Sealed Secrets. Esos tres cortes fueron
+intervenciones manuales (sección 5), no tiempo de infraestructura.
 
 ## 4. Pérdida medida
 
-`[PENDIENTE]` — qué datos NO se recuperaron y por qué. Si se ejecutó la
-prueba de restauración de datos (runbook, sección 3.2), indicar la hora
-de creación del respaldo restaurado (`velero backup describe
-<nombre>` → campo `Started`) contra la hora en que se truncaron/borraron
-los datos a propósito. **RPO real = hora del borrado − hora del
-respaldo usado.**
+Datos recuperados: el usuario `prueba.dr@example.com` reapareció en
+`auth_db.usuarios` (1 fila, `creado_en` 2026-09-24 03:56:58 UTC), restaurado
+desde el disco creado a partir del snapshot (Restore lanzado 18:48:16, PVC
+`Bound` 18:53:56, verificado por SQL 18:55). Evidencia en
+[`evidencia-restauracion-datos.md`](evidencia-restauracion-datos.md).
+
+RPO real: el respaldo es de 03:57:20 UTC del 24 sep. El `Schedule`
+`sealed-secrets-key-backup` corrió a las 04:00:16 UTC con el cluster aún
+vivo, así que el `destroy` empezó después de esa hora y antes de las 04:47
+UTC (inicio del primer `apply`). Por tanto **RPO real < 50 min**, y no se
+perdió ningún dato porque no hubo escrituras entre el respaldo y el
+`destroy`. Lo que no se recuperó: el estado de NATS (su PVC no se restauró;
+no guarda datos de negocio) y cualquier escritura posterior al respaldo. El
+respaldo terminó `PartiallyFailed` por el hook de consistencia previo
+(`Hooks Failed: 1`); el snapshot en sí fue válido (Postgres se recupera por
+WAL).
 
 ## 5. Puntos únicos de fallo detectados
 
-`[PENDIENTE]` — completar con lo que la prueba reveló que NO estaba
-cubierto. Candidatos a verificar durante la prueba real (dejar los que
-apliquen, quitar los que no):
+Cinco fallos reales de esta prueba (los tres primeros costaron la mayor parte
+del RTO):
 
-- El bucket de estado de Terraform (`sa-201901844-tfstate`) y el bucket
-  de respaldos de Velero viven en el **mismo proyecto de GCP** que el
-  cluster. Si se pierde el proyecto completo (no solo el cluster), no hay
-  recuperación posible — la lección de Code Spaces 2014 (respaldos en la
-  misma cuenta que los datos primarios) solo está parcialmente resuelta
-  aquí (separación de *stack*/estado, no de *cuenta*).
-- La restauración de la llave de Sealed Secrets depende de que el
-  `Schedule` `sealed-secrets-key-backup` ya haya corrido al menos una vez
-  antes del desastre. Si el cluster se destruye antes de la primera
-  corrida (ej. mismo día del bootstrap inicial), no hay llave que
-  restaurar y los `SealedSecret` existentes en el repo GitOps de un
-  cluster anterior quedan indescifrables permanentemente.
-- El hook de `pg_dumpall` (ver `values-p9-resilience.yaml`) depende de la
-  variable de entorno `POSTGRES_PASSWORD` estar presente en el contenedor
-  al momento del backup — no se validó en un entorno con
-  autenticación distinta a la contraseña por variable de entorno.
+- **Bootstrap incompleto.** Terraform instalaba ArgoCD, Velero y Sealed
+  Secrets, pero no Kyverno ni Argo Rollouts, que `sa-platform` necesita. Sin
+  sus CRDs el sync falló y ArgoCD no reintenta la misma revisión.
+- **Script de la llave sin dependencias declaradas.** `restore-sealed-secrets-key.sh`
+  usa el CLI `velero` y oculta errores (`2>/dev/null`); en esta máquina no
+  existía, así que dijo "no hay respaldos", se generó una llave nueva y los
+  respaldos diarios siguientes guardaron la llave nueva. Los `SealedSecret` del
+  repo (cifrados con la original) quedaron indescifrables hasta restaurar a
+  mano el respaldo del 23 sep.
+- **Kubeconfig desactualizado.** Cada cluster nuevo trae IP y certificado
+  distintos; `bootstrap_app_of_apps` falló por timeout y luego por x509 hasta
+  ejecutar `gcloud container clusters get-credentials`.
+- **Finalizers de Velero.** En el `destroy`, los objetos `Restore` sin controlador
+  dejaron el namespace `velero` en `Terminating`; hubo que limpiarlos a mano.
+- **Restaurar un PVC con el StatefulSet vivo.** Postgres re-provisiona un PVC
+  vacío que compite con Velero; además el `selfHeal` del app-of-apps deshace
+  la pausa del auto-sync, y un PV huérfano en `Terminating` bloquea el
+  restore hasta 10 min. Solo funciona con el StatefulSet en 0 y ambas
+  Applications en pausa.
+- El bucket de estado y el de respaldos están en el mismo proyecto de GCP que
+  el cluster: perder el proyecto completo no tiene recuperación (se separó el
+  stack, no la cuenta).
 
 ## 6. Brecha y plan
 
-`[PENDIENTE]` — comparar el RTO/RPO reales (secciones 3 y 4) contra los
-objetivos declarados (sección 1) y explicar qué se haría para cerrar la
-diferencia si el objetivo no se cumplió. Ejemplos de acciones típicas
-(ajustar según lo que realmente pase): reducir el intervalo del
-`Schedule` de Velero si el RPO real importa más que el costo de
-almacenamiento adicional; usar un `node_count` o `machine_type` distinto
-si la creación del node pool resultó ser el cuello de botella del RTO.
+RPO: cumplido (< 50 min medido con respaldo manual; el diseño con respaldo
+diario sigue siendo 24 h). RTO: **no cumplido** (≈ 86 min contra 30 min); sin
+las tres intervenciones manuales el tramo automático fue de ≈ 33 min, muy
+cerca del objetivo. Plan para cerrar la brecha:
+
+1. Instalar Kyverno y Argo Rollouts desde Terraform (`helm_release`, antes de
+   la Application raíz), de modo que los CRDs existan al primer sync.
+2. Reescribir el script de la llave con `kubectl` (crear el `Restore`),
+   esperar a que Velero sincronice el bucket y fallar con mensaje claro en vez
+   de continuar con una llave nueva.
+3. Añadir `gcloud container clusters get-credentials` como paso previo al
+   bootstrap, y limpiar finalizers de Velero antes del `destroy`.
+4. Documentar en el runbook el orden de la restauración de datos (pausar
+   root y app, StatefulSet en 0, borrar PVC, restaurar, subir).
+
+Con esto el RTO esperado es ≈ 35-40 min; si tras repetirlo no baja de 30 min,
+el objetivo declarado se revisaría a 40 min en lugar de darlo por cumplido.

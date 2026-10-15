@@ -26,10 +26,10 @@ Universidad San Carlos de Guatemala, Software Avanzado, Sección B, carné
 | Punto de entrada del bootstrap | `P9/terraform` (comando: `terraform apply`) — ver [`docs/runbook-recuperacion.md`](docs/runbook-recuperacion.md) |
 | Backend remoto de Terraform | Google Cloud Storage, bucket `sa-201901844-tfstate`, prefix `p9/state` (stack `terraform-durable`: mismo bucket, prefix `p9/state-durable`) |
 | Schedule de Velero | `schedule-datos` (namespace `sa-p8`, diario 03:00, retención 30 días) y `sealed-secrets-key-backup` (namespace `kube-system`, diario 04:00, retención 90 días); destino: bucket GCS `sa-201901844-velero-backups` |
-| Reconstrucción cronometrada | `[PENDIENTE]` — `docs/informe-prueba-dr.md`, sección 3, tras ejecutar el runbook |
-| Restauración de datos | `[PENDIENTE]` — `docs/informe-prueba-dr.md`, sección 4, tras ejecutar el runbook, paso 8 |
-| Prueba de pérdida de nodo | `[PENDIENTE]` — evidencia (captura o log) del runbook, paso 7 |
-| RTO y RPO declarados | Objetivo: RTO ≤ 30 min, RPO ≤ 24h (justificación en `docs/informe-prueba-dr.md`, sección 1). Medidos: `[PENDIENTE]` |
+| Reconstrucción cronometrada | [`docs/informe-prueba-dr.md`](docs/informe-prueba-dr.md), sección 3 (RTO ≈ 86 min, 14 oct 2026) |
+| Restauración de datos | [`docs/informe-prueba-dr.md`](docs/informe-prueba-dr.md), sección 4, y [`docs/evidencia-restauracion-datos.md`](docs/evidencia-restauracion-datos.md) |
+| Prueba de pérdida de nodo | [`docs/evidencia-perdida-nodo.md`](docs/evidencia-perdida-nodo.md) |
+| RTO y RPO declarados | Objetivo: RTO ≤ 30 min, RPO ≤ 24h (justificación en `docs/informe-prueba-dr.md`, sección 1). Medidos: RTO ≈ 86 min (no cumplido), RPO < 50 min (cumplido) |
 | Video demostrativo | `[PENDIENTE]` — URL y minutaje por punto |
 
 **Nota:** el enunciado (sección 4.1) es explícito en que un enlace
@@ -39,11 +39,8 @@ repositorio GitOps sea público y que cualquier ruta de evidencia
 (capturas, logs) esté dentro de este mismo repositorio de código (no en
 Google Drive ni en una carpeta local).
 
-## Continúa en desarrollo
+## Estado
 
-Ver `docs/runbook-recuperacion.md` para el procedimiento completo y
-`docs/informe-prueba-dr.md` para la plantilla del informe — ambos
-documentan exactamente qué falta ejecutar (la reconstrucción cronometrada,
-la prueba de restauración de datos, la prueba de pérdida de nodo y el
-video) porque esos pasos requieren correr comandos reales contra GCP y
-Claude no tiene forma de ejecutarlos directamente en esta sesión.
+La prueba de DR (reconstrucción, llave de Sealed Secrets, restauración de
+datos y pérdida de nodo) se ejecutó y está documentada en
+`docs/informe-prueba-dr.md`. Solo falta el video demostrativo.
