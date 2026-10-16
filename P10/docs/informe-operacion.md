@@ -21,14 +21,13 @@ Dos fallos, ambos activados por GitOps (`values-p10-faults.yaml`, sin tocar el c
 
 ## 3. Tiempo de detección
 
-- El síntoma (> 10 % de errores 5xx) fue visible en métricas a los **0 min 07 s** de publicado el fallo.
-- La alerta `SLODisponibilidadQuemaRapida` pasó a *firing* a los **0 min 08 s** y Alertmanager la entregó al receptor de alertas.
+Con el fallo publicado a las 22:11:29 (T0), el script registró el síntoma (> 10 % de errores 5xx) a los 0 min 07 s y la alerta `SLODisponibilidadQuemaRapida` en *firing* a los 0 min 08 s; Alertmanager la entregó al receptor de alertas.
 
-(Incluye el tiempo de sincronización de ArgoCD y de arranque del pod: el reloj arranca en el `git push`.)
+**Salvedad:** esos 8 s no miden la detección real del fallo. Ese mismo día el clúster tuvo varios incidentes de infraestructura (reemplazo de nodos, presión de memoria en un nodo y pérdida de la conexión a NATS) que dejaron errores 5xx residuales de entre 10 % y 30 %. La alerta de quema rápida ya estaba en *firing* desde las 21:56 (Alertmanager la entregó en ese estado a esa hora), así que al inyectar el fallo ya estaba activa y el script la vio de inmediato. La medición limpia de detección requería partir de un clúster sin errores previos, y no se consiguió en esta corrida; se declara así para no presentar un tiempo mejor que el real.
 
 ## 4. Recorrido hasta la causa
 
-Desde la alerta hasta la causa pasaron **3 min 53 s** (4 min 01 s desde el `git push`):
+Desde la alerta hasta la causa pasaron **3 min 53 s** (4 min 01 s desde el `git push`), un poco por encima del objetivo de 3 min:
 
 1. **Alerta** → tablero *Operación SA P10*: el panel de errores por ruta mostró que el 5xx se concentraba en `/api/reservas`.
 2. **Traza** → panel TraceQL (`status = error`): una traza de `api-gateway` → `NATS request svc.reserva-service.http` → `reserva-service`, con el span de PostgreSQL (`SELECT pg_sleep`) de ≈ 1,5 s.
@@ -46,6 +45,6 @@ Canary: con el gateway defectuoso, Argo Rollouts abortó el despliegue y volvió
 
 Alertas en fuego al identificar la causa: **GatewayNATSSinRespuesta, SLODisponibilidadQuemaLenta, SLODisponibilidadQuemaRapida**.
 
-- **Sobrante:** ninguna alerta ruidosa en la prueba; las alertas de quema usan dos ventanas (larga y corta) precisamente para no disparar por picos ya terminados.
+- **Sobrante:** ninguna alerta ruidosa. `GatewayNATSSinRespuesta` (el gateway no obtiene respuesta de `reserva-service` a tiempo) y `SLODisponibilidadQuemaLenta` (alerta de ticket por quema sostenida) son consecuencia coherente del fallo. La de quema rápida ya estaba activa antes de la prueba por errores residuales del clúster (ver sección 3): los errores eran reales, no un falso positivo. Las alertas de quema usan dos ventanas (larga y corta) para no disparar por picos ya terminados.
 - **Faltante:** no hay alerta por *latencia de la base de datos* en sí. Con 1,5 s por consulta las peticiones siguen por debajo del umbral de 2 s del SLO-2, así que `SLOLatenciaAlta` no habría saltado; el problema sólo se notó por los errores. Mejora propuesta: un histograma con la duración de las consultas a PostgreSQL y una alerta sobre su p95 (p. ej. > 1 s durante 5 min), para detectar la degradación antes de que haya errores.
 
