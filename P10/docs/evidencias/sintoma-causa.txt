@@ -1,7 +1,7 @@
-﻿[2026-10-14 22:54:53] T0 fallo publicado en GitOps
-[2026-10-14 22:56:34] SINTOMA visible en metricas: 14.0 % de errores 5xx (102s tras T0)
-[2026-10-14 22:59:40] ALERTA SLODisponibilidadQuemaRapida EN FUEGO (287s tras T0)
-[2026-10-14 22:59:42] CAUSA IDENTIFICADA: 2s desde la alerta, 290s desde T0
-[2026-10-14 22:59:44] Alertas en fuego al identificar la causa: SLODisponibilidadQuemaRapida
-[2026-10-14 22:59:48] T1 fix publicado (revert del fallo)
-[2026-10-14 23:01:33] RECUPERADO: error < 1 % a los 105s del fix (400s desde T0)
+﻿[2026-10-15 22:11:29] T0 fallo publicado en GitOps
+[2026-10-15 22:11:37] SINTOMA visible en metricas: 34.3 % de errores 5xx (7s tras T0)
+[2026-10-15 22:11:38] ALERTA SLODisponibilidadQuemaRapida EN FUEGO (8s tras T0)
+[2026-10-15 22:15:31] CAUSA IDENTIFICADA: 233s desde la alerta, 241s desde T0
+[2026-10-15 22:15:32] Alertas en fuego al identificar la causa: GatewayNATSSinRespuesta, SLODisponibilidadQuemaLenta, SLODisponibilidadQuemaRapida
+[2026-10-15 22:15:36] T1 fix publicado (revert del fallo)
+[2026-10-15 22:18:33] RECUPERADO: error < 1 % a los 177s del fix (424s desde T0)
