@@ -23,7 +23,7 @@ Universidad San Carlos de Guatemala, Software Avanzado, Sección B, carné
 |---|---|
 | Repositorio GitOps | https://github.com/Oswaldo052001/Practicas-SA-B-201901844-gitops |
 | Aplicación raíz en ArgoCD | `sa-platform-root`, namespace `argocd` |
-| Punto de entrada del bootstrap | `P9/terraform` (comando: `terraform apply`) — ver [`docs/runbook-recuperacion.md`](docs/runbook-recuperacion.md) |
+| Punto de entrada del bootstrap | `P9/bootstrap.sh` (comando: `./P9/bootstrap.sh`, que ejecuta `terraform apply` sobre `P9/terraform` y reconecta kubectl) — ver [`docs/runbook-recuperacion.md`](docs/runbook-recuperacion.md) |
 | Backend remoto de Terraform | Google Cloud Storage, bucket `sa-201901844-tfstate`, prefix `p9/state` (stack `terraform-durable`: mismo bucket, prefix `p9/state-durable`) |
 | Schedule de Velero | `schedule-datos` (namespace `sa-p8`, diario 03:00, retención 30 días) y `sealed-secrets-key-backup` (namespace `kube-system`, diario 04:00, retención 90 días); destino: bucket GCS `sa-201901844-velero-backups` |
 | Reconstrucción cronometrada | [`docs/informe-prueba-dr.md`](docs/informe-prueba-dr.md), sección 3 (RTO ≈ 86 min, 14 oct 2026) |
