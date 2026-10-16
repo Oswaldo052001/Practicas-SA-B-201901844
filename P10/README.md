@@ -2,9 +2,10 @@
 
 Universidad San Carlos de Guatemala, Software Avanzado, Sección B, carné
 201901844. Esta práctica se califica junto con la P8 (entrega progresiva) y
-la P9 (continuidad operativa), cuyo código y despliegue **no se modificaron**
+la P9 (continuidad operativa), cuyo diseño y despliegue **no se modificaron**
 salvo lo estrictamente necesario para observar y decidir el canary por
-métricas (ver «Cambios sobre P8/P9» al final).
+métricas, más dos correcciones menores de P9 hechas durante esta práctica
+(ver «Cambios sobre P8/P9» al final).
 
 ## Qué se construyó
 
@@ -20,9 +21,9 @@ métricas (ver «Cambios sobre P8/P9» al final).
 - **Canary decidido por métricas reales:** el `AnalysisTemplate` consulta
   Prometheus (tasa de error y p95 sólo de los pods canary); si falla, Argo
   Rollouts revierte solo.
-- **2 SLO** con *recording rules*, **5 alertas por quema de presupuesto** con
-  runbook, **tablero** de las cuatro señales de oro y un **recorrido
-  síntoma → causa** cronometrado.
+- **2 SLO** con *recording rules*, **5 alertas con runbook** (3 por quema del
+  presupuesto de error — *burn rate* — y 2 operativas), **tablero** de las
+  cuatro señales de oro y un **recorrido síntoma → causa** cronometrado.
 
 Diagrama del flujo: [`docs/diagrama-telemetria.md`](docs/diagrama-telemetria.md).
 
@@ -48,6 +49,7 @@ Diagrama del flujo: [`docs/diagrama-telemetria.md`](docs/diagrama-telemetria.md)
 | Evidencia del recorrido síntoma → causa | [`docs/evidencias/sintoma-causa.txt`](docs/evidencias/sintoma-causa.txt) |
 | Informe de operación (≤ 2 páginas, 6 campos) | [`docs/informe-operacion.md`](docs/informe-operacion.md) |
 | Diagrama del flujo de telemetría | [`docs/diagrama-telemetria.md`](docs/diagrama-telemetria.md) |
+| Video de demostración (5–8 min) | [PENDIENTE: pegar aquí la URL pública del video y su minutaje] |
 
 **Nota sobre el acceso en vivo:** Prometheus (`kps-prometheus`, puerto 9090)
 y Grafana (`kps-grafana`, puerto 80 → usuario `admin`, clave
@@ -88,3 +90,21 @@ Sealed Secrets, DR — queda intacto):
 - `bootstrap/apps/sa-platform-app.yaml`: se suman `values-p10.yaml` (imágenes
   `p10-v1.0.0` y más memoria por el SDK) y `values-p10-faults.yaml`.
 - `analysistemplate.yaml` del api-gateway sustituye al de k6 de la P8.
+
+Correcciones de P9 descubiertas al verificar esta práctica (no cambian su
+diseño):
+
+- Repo GitOps, `apps/sa-platform/values-p9-resilience.yaml`: el *hook* de
+  Velero del pod de PostgreSQL ejecutaba `pg_dumpall -U postgres` con la
+  contraseña de `sa_admin`, así que fallaba y los respaldos diarios de datos
+  quedaban `PartiallyFailed` (aunque el snapshot del disco sí se tomaba).
+  Ahora usa `-U sa_admin --no-role-passwords`; un respaldo de prueba quedó
+  `Completed` con 0 errores.
+- Repo de código: se añadió `P9/bootstrap.sh` como punto de entrada único del
+  bootstrap (envuelve `terraform apply` y reconecta `kubectl`); la tabla 4.1
+  del README de P9 apunta a él.
+
+Para el generador de carga (`apps/observability/loadgen.yaml`): usa un usuario
+que solo lista y otro que solo crea reservas a ritmo bajo; una versión
+anterior hacía crecer sin límite el listado de un solo usuario (16 mil filas)
+y tumbaba `reserva-service`.
